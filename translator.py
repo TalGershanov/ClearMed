@@ -1,15 +1,17 @@
 import re
+import logging
 
+logger = logging.getLogger("clearmed.translator")
 class ClinicalTranslator:
     def __init__(self, db_dict_summery_string, db_get_explanation_func):
         self.summary_string = db_dict_summery_string
         self.db_search_function = db_get_explanation_func
+        logger.debug("ClinicalTranslator initialized.")
 
     def get_approved_terms(self, ui_selection: dict) -> list:
-        return [term for term, is_selected in ui_selection.items() if is_selected]
-
-    def filter_terms(self, found_terms: list, terms_to_ignore: list) -> list:
-        return [t for t in found_terms if t not in terms_to_ignore]
+        approved =  [term for term, is_selected in ui_selection.items() if is_selected]
+        logger.debug(f"Approved {len(approved)} terms from UI selection.")
+        return approved
 
     def fetch_explanations(self, approved_terms) -> dict:
         terms_dict = {}
@@ -19,12 +21,14 @@ class ClinicalTranslator:
                 if explained and (self.summary_string in explained):
                     terms_dict[term] = explained[self.summary_string]
             except Exception as e:
-                print(f"Error fetching explanation for '{term}': {e}")
+                logger.exception(f"Error fetching explanation for '{term}': {e}")
 
+        logger.info(f"Successfully fetched {len(terms_dict)} explanations from DB.")
         return terms_dict
 
     def replace_terms(self, original_text: str, terms_dict: dict) -> str:
         if not terms_dict:
+            logger.warning("No terms dictionary provided for replacement.")
             return original_text
 
         translated_text = original_text
@@ -39,5 +43,5 @@ class ClinicalTranslator:
             replacement_string = f"{term} ({explanation})"
 
             translated_text = pattern.sub(replacement_string, translated_text)
-
+        logger.info("Finished translating terms in text.")
         return translated_text
