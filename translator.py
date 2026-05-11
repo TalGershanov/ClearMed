@@ -45,3 +45,5 @@ class ClinicalTranslator:
             translated_text = pattern.sub(replacement_string, translated_text)
         logger.info("Finished translating terms in text.")
         return translated_text
+
+
