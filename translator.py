@@ -16,7 +16,7 @@ class ClinicalTranslator:
     def fetch_explanations(self, approved_terms) -> dict:
         terms_dict = {}
         for term in approved_terms:
-            try:
+            try: #here - already have dict from main so use that instead of yuvals func- so change class to recieve the dict OR just the term list and then use yuvals func
                 explained = self.db_search_function(term)
                 if explained and (self.summary_string in explained):
                     terms_dict[term] = explained[self.summary_string]
