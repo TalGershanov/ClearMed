@@ -3,7 +3,7 @@ import json
 import re
 
 
-DB_FILE = "../clearmed.db"
+DB_FILE = "clearmed.db"
 
 def normalize_text(text):
     """
