@@ -16,7 +16,7 @@ class ClinicalTranslator:
     def fetch_explanations(self, approved_terms) -> dict:
         terms_dict = {}
         for term in approved_terms:
-            try:
+            try: #here - already have dict from main so use that instead of yuvals func- so change class to recieve the dict OR just the term list and then use yuvals func
                 explained = self.db_search_function(term)
                 if explained and (self.summary_string in explained):
                     terms_dict[term] = explained[self.summary_string]
@@ -26,7 +26,7 @@ class ClinicalTranslator:
         logger.info(f"Successfully fetched {len(terms_dict)} explanations from DB.")
         return terms_dict
 
-    def replace_terms(self, original_text: str, terms_dict: dict) -> str:
+    def replace_terms(self, original_text: str, terms_dict: dict) -> str: #add here the translated term so we know what we translated
         if not terms_dict:
             logger.warning("No terms dictionary provided for replacement.")
             return original_text

@@ -21,7 +21,7 @@ def main():
 
 
     translator = ClinicalTranslator(
-        db_dict_summery_string="simple_explanation",
+        db_dict_summery_string="short_explanation",
         db_get_explanation_func=get_explanation_from_partner_results
     )
 
