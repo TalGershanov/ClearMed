@@ -1,6 +1,6 @@
 import logging
 from log_config import setup_logging
-from medical_detector import detect_terms_with_explanations #yuval
+from medical_term_detector import detect_terms_with_explanations #yuval
 from translator import ClinicalTranslator
 
 def main():

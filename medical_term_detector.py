@@ -4,7 +4,7 @@ import json
 from medical_term_trie import build_trie_from_db
 
 
-DB_FILE = "../clearmed.db"
+DB_FILE = "clearmed.db"
 
 def get_term_details(main_term):
     """
