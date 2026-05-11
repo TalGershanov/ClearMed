@@ -26,7 +26,7 @@ class ClinicalTranslator:
         logger.info(f"Successfully fetched {len(terms_dict)} explanations from DB.")
         return terms_dict
 
-    def replace_terms(self, original_text: str, terms_dict: dict) -> str: #add here the transkated term so we know what we translated
+    def replace_terms(self, original_text: str, terms_dict: dict) -> str: #add here the translated term so we know what we translated
         if not terms_dict:
             logger.warning("No terms dictionary provided for replacement.")
             return original_text
