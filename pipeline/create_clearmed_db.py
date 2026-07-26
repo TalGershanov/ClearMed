@@ -1,11 +1,8 @@
 import json
-import os
 import sqlite3
 import re
-import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+import bootstrap
 from config import JSON_FILE, DB_FILE
 
 def create_short_explanation(full_explanation, max_words=30):
