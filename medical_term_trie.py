@@ -1,254 +1,151 @@
-import sqlite3
 import json
 import re
+import logging
 
+from db import get_connection
 
-DB_FILE = "clearmed.db"
+logger = logging.getLogger("clearmed.medical_term_trie")
 
 def normalize_text(text):
-    """
-    מנרמל טקסט כדי שהחיפוש יהיה אחיד.
-
-    למשל:
-    'HbA1C,'  -> 'hba1c'
-    'Type-2 Diabetes' -> 'type 2 diabetes'
-    """
-
-    # הופך לאותיות קטנות
-    text = text.lower()
-
-    # מוחק סימני פיסוק
-    text = re.sub(r"[^a-z0-9\s]", " ", text)
-
-    # מסדר רווחים
-    text = re.sub(r"\s+", " ", text).strip()
-
-    return text
-
+	# normalizes text so that searching is consistent
+	# e.g.:
+	# 'HbA1C,'  -> 'hba1c'
+	# 'Type-2 Diabetes' -> 'type 2 diabetes'
+	# convert to lowercase
+	text = text.lower()
+	# remove punctuation
+	text = re.sub(r"[^a-z0-9\s]", " ", text)
+	# normalize whitespace
+	text = re.sub(r"\s+", " ", text).strip()
+	return text
 
 def tokenize(text):
-    """
-    מחלק טקסט לרשימת מילים.
-    """
-
-    return normalize_text(text).split()
-
+	# splits text into a list of words
+	return normalize_text(text).split()
 
 class TrieNode:
-    """
-    כל Node בעץ מייצג מילה אחת.
-
-    למשל:
-    type -> 2 -> diabetes
-    """
-
-    def __init__(self):
-
-        # מילון:
-        # word -> next TrieNode
-        self.children = {}
-
-        # האם זה סוף של term חוקי?
-        self.is_end = False
-
-        # אם זה סוף term:
-        # מה המונח הראשי?
-        #
-        # לדוגמה:
-        # HbA1C -> main_term = A1C
-        self.main_term = None
-
+	# each node in the tree represents one word
+	# e.g.:
+	# type -> 2 -> diabetes
+	def __init__(self):
+		# dict: word -> next TrieNode
+		self.children = {}
+		# is this the end of a valid term?
+		self.is_end = False
+		# if this is the end of a term: what is the main term?
+		# e.g. HbA1C -> main_term = A1C
+		self.main_term = None
 
 class MedicalTermTrie:
+	def __init__(self):
+		# root is the start of the whole tree
+		self.root = TrieNode()
 
-    def __init__(self):
+	def insert(self, phrase, main_term):
+		# inserts a phrase into the tree
+		# phrase: 'type 2 diabetes'
+		# main_term: 'Type 2 Diabetes'
+		# split into words
+		words = tokenize(phrase)
+		# if phrase is empty
+		if not words:
+			return
+		# start from the root
+		current = self.root
+		# go word by word
+		for word in words:
+			# if this child doesn't exist yet, create a new node
+			if word not in current.children:
+				current.children[word] = TrieNode()
+			# go down a level in the tree
+			current = current.children[word]
+		# mark this as the end of a term
+		self.is_end = True
+		current.is_end = True
+		# store the main medical term
+		current.main_term = main_term
 
-        # root הוא ההתחלה של כל העץ
-        self.root = TrieNode()
-
-    def insert(self, phrase, main_term):
-        """
-        מכניס phrase לתוך העץ.
-
-        phrase:
-        'type 2 diabetes'
-
-        main_term:
-        'Type 2 Diabetes'
-        """
-
-        # מפצל למילים
-        words = tokenize(phrase)
-
-        # אם phrase ריק
-        if not words:
-            return
-
-        # מתחילים מהשורש
-        current = self.root
-
-        # עוברים מילה מילה
-        for word in words:
-
-            # אם עדיין אין child כזה
-            # יוצרים node חדש
-            if word not in current.children:
-                current.children[word] = TrieNode()
-
-            # יורדים level בעץ
-            current = current.children[word]
-
-        # מסמנים שזה סוף term
-        self.is_end = True
-
-        current.is_end = True
-
-        # שומרים מה ה-main medical term
-        current.main_term = main_term
-
-    def find_terms(self, text):
-        """
-        מקבל טקסט חופשי
-        ומחזיר אילו מושגים רפואיים נמצאו.
-        """
-
-        words = tokenize(text)
-
-        found_terms = []
-
-        # i = מאיפה מתחילים לחפש בטקסט
-        i = 0
-
-        while i < len(words):
-
-            # מתחילים כל חיפוש מחדש מה-root
-            current = self.root
-
-            # נשמור את ה-match הכי ארוך שמצאנו
-            longest_match = None
-
-            # עד איפה ה-match הגיע
-            longest_match_end = i
-
-            # j מתקדם קדימה בטקסט
-            j = i
-
-            """
-            מנסים להתקדם בעץ כל עוד:
-            המילה הבאה קיימת כ-child
-            """
-
-            while j < len(words) and words[j] in current.children:
-
-                # יורדים לעומק הבא בעץ
-                current = current.children[words[j]]
-
-                """
-                אם הגענו לסוף term חוקי
-                נשמור אותו.
-                """
-
-                if current.is_end:
-
-                    matched_text = " ".join(words[i:j + 1])
-
-                    longest_match = {
-                        "matched_text": matched_text,
-
-                        # המונח הראשי במסד הנתונים
-                        "main_term": current.main_term,
-
-                        # איפה התחיל בטקסט
-                        "start_word_index": i,
-
-                        # איפה נגמר בטקסט
-                        "end_word_index": j
-                    }
-
-                    longest_match_end = j
-
-                # ממשיכים לבדוק אם יש term ארוך יותר
-                j += 1
-
-            """
-            אם מצאנו match:
-            ניקח את הארוך ביותר.
-            """
-
-            if longest_match:
-
-                found_terms.append(longest_match)
-
-                # מדלגים קדימה
-                # כדי לא לזהות terms חופפים
-                i = longest_match_end + 1
-
-            else:
-                # אם לא מצאנו term
-                # מתקדמים מילה אחת
-                i += 1
-
-        return found_terms
-
+	def find_terms(self, text):
+		# receives free text and returns which medical terms were found
+		words = tokenize(text)
+		found_terms = []
+		# i = where we start searching in the text
+		i = 0
+		while i < len(words):
+			# start each search over from the root
+			current = self.root
+			# keep the longest match we found
+			longest_match = None
+			# how far the match reached
+			longest_match_end = i
+			# j advances forward in the text
+			j = i
+			# try to advance in the tree as long as the next word exists as a child
+			while j < len(words) and words[j] in current.children:
+				# go down to the next depth in the tree
+				current = current.children[words[j]]
+				# if we reached the end of a valid term, save it
+				if current.is_end:
+					matched_text = " ".join(words[i:j + 1])
+					longest_match = {
+						"matched_text": matched_text,
+						# the main term in the database
+						"main_term": current.main_term,
+						# where it started in the text
+						"start_word_index": i,
+						# where it ended in the text
+						"end_word_index": j
+					}
+					longest_match_end = j
+				# keep checking for a longer term
+				j += 1
+			# if we found a match, take the longest one
+			if longest_match:
+				found_terms.append(longest_match)
+				# skip forward to avoid detecting overlapping terms
+				i = longest_match_end + 1
+			else:
+				# if no term was found, advance one word
+				i += 1
+		logger.debug(f"Found {len(found_terms)} term match(es) in text")
+		return found_terms
 
 def load_terms_from_db():
-    """
-    טוען את כל המונחים מה-DB.
-    """
-
-    connection = sqlite3.connect(DB_FILE)
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        SELECT term, synonyms
-        FROM medical_terms
-    """)
-
-    rows = cursor.fetchall()
-
-    connection.close()
-
-    return rows
-
+	# loads all the terms from the DB
+	connection = get_connection()
+	cursor = connection.cursor()
+	cursor.execute("""
+		SELECT term, synonyms
+		FROM medical_terms
+	""")
+	rows = cursor.fetchall()
+	connection.close()
+	return rows
 
 def build_trie_from_db():
-    """
-    בונה Trie מכל המונחים הרפואיים.
-    """
-
-    trie = MedicalTermTrie()
-
-    rows = load_terms_from_db()
-
-    for term, synonyms_json in rows:
-
-        # מכניסים את המונח הראשי
-        trie.insert(term, term)
-
-        # טוענים synonyms מה-JSON
-        synonyms = json.loads(synonyms_json)
-
-        # מכניסים גם synonyms
-        for synonym in synonyms:
-            trie.insert(synonym, term)
-
-    return trie
-
+	# builds a trie from all the medical terms
+	trie = MedicalTermTrie()
+	rows = load_terms_from_db()
+	for term, synonyms_json in rows:
+		# insert the main term
+		trie.insert(term, term)
+		# load synonyms from JSON
+		synonyms = json.loads(synonyms_json)
+		# also insert synonyms
+		for synonym in synonyms:
+			trie.insert(synonym, term)
+	logger.info(f"Built trie from {len(rows)} term(s) in the database")
+	return trie
 
 if __name__ == "__main__":
-
-    # בונים Trie מה-database
-    trie = build_trie_from_db()
-
-    sample_text = """
-    The patient has type 2 diabetes and his HbA1C test was high.
-    The doctor also mentioned blood glucose levels.
-    """
-
-    # מחפשים מושגים רפואיים בטקסט
-    results = trie.find_terms(sample_text)
-
-    print("Found medical terms:\n")
-
-    for result in results:
-        print(result)
+	# build the trie from the database
+	trie = build_trie_from_db()
+	sample_text = """
+	The patient has type 2 diabetes and his HbA1C test was high.
+	The doctor also mentioned blood glucose levels.
+	"""
+	# search for medical terms in the text
+	results = trie.find_terms(sample_text)
+	print("Found medical terms:\n")
+	for result in results:
+		print(result)
