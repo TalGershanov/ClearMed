@@ -1,10 +1,15 @@
 import xml.etree.ElementTree as ET
 import json
+import os
 import re
+import sys
 from html import unescape
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from config import JSON_FILE
+
 XML_FILE = "health_topics.xml"
-JSON_FILE = "output/clearmed_terms_english.json"
 
 def clean_html(raw_html):
 	if not raw_html:

@@ -2,8 +2,9 @@ import os
 import sqlite3
 import logging
 
+from config import DB_FILE
+
 logger = logging.getLogger("clearmed.db")
-DB_FILE = "clearmed.db"
 
 def get_connection():
 	if not os.path.exists(DB_FILE):
