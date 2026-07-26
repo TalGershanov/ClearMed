@@ -61,17 +61,3 @@ def detect_terms_with_explanations(text):
 			logger.debug(f"Dropping detected term '{detected['main_term']}' - no DB details found")
 	logger.info(f"Detected {len(results)} medical term(s) with explanations")
 	return results
-
-if __name__ == "__main__":
-	sample_text = """
-	The patient has HbA1C above normal range.
-	The doctor mentioned blood glucose and type 2 diabetes.
-	"""
-	results = detect_terms_with_explanations(sample_text)
-	print("Detected medical terms:\n")
-	for item in results:
-		print("Matched text:", item["matched_text"])
-		print("Main term:", item["main_term"])
-		print("Explanation:", item["simple_explanation"])
-		print("Categories:", item["categories"])
-		print("-" * 50)
