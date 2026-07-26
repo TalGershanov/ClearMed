@@ -136,16 +136,3 @@ def build_trie_from_db():
 			trie.insert(synonym, term)
 	logger.info(f"Built trie from {len(rows)} term(s) in the database")
 	return trie
-
-if __name__ == "__main__":
-	# build the trie from the database
-	trie = build_trie_from_db()
-	sample_text = """
-	The patient has type 2 diabetes and his HbA1C test was high.
-	The doctor also mentioned blood glucose levels.
-	"""
-	# search for medical terms in the text
-	results = trie.find_terms(sample_text)
-	print("Found medical terms:\n")
-	for result in results:
-		print(result)
