@@ -2,8 +2,8 @@ import json
 import sqlite3
 import re
 
-JSON_FILE = "output/clearmed_terms_english.json"
-DB_FILE = "clearmed.db"
+import bootstrap
+from config import JSON_FILE, DB_FILE
 
 def create_short_explanation(full_explanation, max_words=30):
 	if not full_explanation:

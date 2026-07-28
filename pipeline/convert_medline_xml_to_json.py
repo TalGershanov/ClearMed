@@ -3,8 +3,10 @@ import json
 import re
 from html import unescape
 
+import bootstrap
+from config import JSON_FILE
+
 XML_FILE = "health_topics.xml"
-JSON_FILE = "output/clearmed_terms_english.json"
 
 def clean_html(raw_html):
 	if not raw_html:
