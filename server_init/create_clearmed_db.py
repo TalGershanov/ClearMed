@@ -102,6 +102,11 @@ def insert_terms(cursor, terms):
 		))
 
 def create_database():
+	# Deliberately writes via raw sqlite3 rather than DAL/db.py: this is offline
+	# schema/seed tooling with its own lifecycle, and DatabaseInterface only
+	# declares the read methods the running app needs. If SQLiteDatabase is ever
+	# swapped for a different backend, this script must be updated to match, or
+	# it will keep seeding a store the app no longer reads from.
 	with open(JSON_FILE, "r", encoding="utf-8") as f:
 		data = json.load(f)
 	terms = data["terms"]

@@ -1,8 +1,7 @@
-import json
 import re
 import logging
 
-from db import get_connection
+from DAL import get_dal
 
 logger = logging.getLogger("clearmed.medical_term_trie")
 
@@ -111,26 +110,19 @@ class MedicalTermTrie:
 		return found_terms
 
 def load_terms_from_db():
-	# loads all the terms from the DB
-	connection = get_connection()
-	cursor = connection.cursor()
-	cursor.execute("""
-		SELECT term, synonyms
-		FROM medical_terms
-	""")
-	rows = cursor.fetchall()
-	connection.close()
-	return rows
+	# loads all the terms from the DB via the DAL
+	dal = get_dal()
+	return dal.get_all_terms()
 
 def build_trie_from_db():
 	# builds a trie from all the medical terms
 	trie = MedicalTermTrie()
 	rows = load_terms_from_db()
-	for term, synonyms_json in rows:
+	for row in rows:
+		term = row["term"]
+		synonyms = row["synonyms"]
 		# insert the main term
 		trie.insert(term, term)
-		# load synonyms from JSON
-		synonyms = json.loads(synonyms_json)
 		# also insert synonyms
 		for synonym in synonyms:
 			trie.insert(synonym, term)
