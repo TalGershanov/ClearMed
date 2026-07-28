@@ -1,8 +1,7 @@
-import json
 import logging
 
-from db import get_connection
-from medical_term_trie import build_trie_from_db
+from DAL import get_dal
+from logic.medical_term_trie import build_trie_from_db
 
 logger = logging.getLogger("clearmed.medical_term_detector")
 
@@ -12,32 +11,8 @@ trie = build_trie_from_db()
 def get_term_details(main_term):
 	# receives a main term name, e.g. A1C, and returns its details from the DB
 	logger.debug(f"Looking up term details for '{main_term}'")
-	connection = get_connection()
-	cursor = connection.cursor()
-	cursor.execute("""
-		SELECT
-			term,
-			short_explanation,
-			simple_explanation,
-			synonyms,
-			categories
-		FROM medical_terms
-		WHERE LOWER(term) = LOWER(?)
-	""", (main_term,))
-	row = cursor.fetchone()
-	connection.close()
-	if row is None:
-		logger.debug(f"No DB entry found for term '{main_term}'")
-		return None
-	return {
-		"term": row[0],
-		# the short explanation we generated ourselves
-		"short_explanation": row[1],
-		# the full explanation from the source
-		"simple_explanation": row[2],
-		"synonyms": json.loads(row[3]),
-		"categories": json.loads(row[4])
-	}
+	dal = get_dal()
+	return dal.get_term_by_name(main_term)
 
 def detect_terms_with_explanations(text):
 	# detects medical terms in the text and returns them together with explanations from the DB

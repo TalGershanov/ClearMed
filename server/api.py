@@ -3,8 +3,8 @@ from log_config import setup_logging
 
 setup_logging()
 
-from medical_term_detector import detect_terms_with_explanations, get_term_details
-from translator import ClinicalTranslator
+from logic.medical_term_detector import detect_terms_with_explanations, get_term_details
+from logic.translator import ClinicalTranslator
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Dict
@@ -36,4 +36,4 @@ async def translate_text(request: TranslateRequest):
 	final_text = translator.replace_terms(request.text, terms_with_data)
 	return {"translated_text": final_text, "explained_terms_list": approved_terms}
 
-# to activate server run in terminal uvicorn api:app --reload
+# to activate server run in terminal uvicorn server.api:app --reload

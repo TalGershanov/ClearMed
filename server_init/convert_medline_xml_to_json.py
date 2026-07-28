@@ -4,9 +4,7 @@ import re
 from html import unescape
 
 import bootstrap
-from config import JSON_FILE
-
-XML_FILE = "health_topics.xml"
+from config import JSON_FILE, XML_FILE
 
 def clean_html(raw_html):
 	if not raw_html:
