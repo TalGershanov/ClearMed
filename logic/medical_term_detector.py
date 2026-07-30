@@ -5,8 +5,12 @@ from logic.medical_term_trie import build_trie_from_db
 
 logger = logging.getLogger("clearmed.medical_term_detector")
 
-# trie is built once from the DB at import time instead of on every request
-trie = build_trie_from_db()
+# built once by the server at startup via init_trie()
+trie = None
+
+def init_trie():
+	global trie
+	trie = build_trie_from_db()
 
 def get_term_details(main_term):
 	# receives a main term name, e.g. A1C, and returns its details from the DB

@@ -1,9 +1,10 @@
 import logging
+from contextlib import asynccontextmanager
 from log_config import setup_logging
 
 setup_logging()
 
-from logic.medical_term_detector import detect_terms_with_explanations, get_term_details
+from logic.medical_term_detector import detect_terms_with_explanations, get_term_details, init_trie
 from logic.translator import ClinicalTranslator
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -12,7 +13,13 @@ from typing import Dict
 logger = logging.getLogger("clearmed.api")
 logger.info("--- Starting ClearMed Application ---")
 
-app = FastAPI(title="ClearMed API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+	# build the medical term trie once, before the server starts accepting requests
+	init_trie()
+	yield
+
+app = FastAPI(title="ClearMed API", lifespan=lifespan)
 
 class AnalyseRequest(BaseModel):
 	text: str
