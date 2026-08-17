@@ -35,8 +35,7 @@ class ClinicalTranslator:
 		sorted_terms = sorted(terms_dict.keys(), key=len, reverse=True)
 		for term in sorted_terms:
 			explanation = terms_dict[term]
-			pattern = re.compile(rf'\b({re.escape(term)})\b')
-			replacement_string = f"{term} ({explanation})"
-			translated_text = pattern.sub(replacement_string, translated_text)
+			pattern = re.compile(rf'\b({re.escape(term)})\b', re.IGNORECASE)
+			translated_text = pattern.sub(lambda m, explanation=explanation: f"{m.group(1)} ({explanation})", translated_text)
 		logger.info("Finished translating terms in text.")
 		return translated_text

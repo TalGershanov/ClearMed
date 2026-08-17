@@ -40,3 +40,7 @@ def detect_terms_with_explanations(text):
 			logger.debug(f"Dropping detected term '{detected['main_term']}' - no DB details found")
 	logger.info(f"Detected {len(results)} medical term(s) with explanations")
 	return results
+
+def build_ui_selection(detected_terms):
+	# builds a default ui_selection dict (all true) from a detect_terms_with_explanations() result
+	return {term["main_term"]: True for term in detected_terms}
