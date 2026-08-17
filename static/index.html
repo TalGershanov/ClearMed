@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearMed</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+	<div class="topbar-left">
+		<span class="step-badge" id="step-badge">1</span>
+		<h1 class="step-title" id="step-title">Medical Document Input</h1>
+	</div>
+	<div class="logo">
+		<img src="logo.png" alt="ClearMed" class="logo-img">
+	</div>
+</header>
+
+<main class="layout">
+	<section class="content">
+
+		<!-- Step 1: Document Input -->
+		<div class="card step-panel" id="panel-1">
+			<h2 class="card-title center">Upload a Medical Document</h2>
+			<p class="card-subtitle center">Upload a medical report, discharge summary, diagnosis, or treatment recommendation as a .txt or .pdf file.</p>
+
+			<label for="file-input" class="upload-box" id="upload-box">
+				<span id="upload-box-text">Click to choose a .txt or .pdf file, or drag one here</span>
+				<span class="upload-box-filename" id="upload-box-filename"></span>
+			</label>
+			<input type="file" id="file-input" accept=".txt,.pdf" hidden>
+
+			<div class="actions actions-end">
+				<button class="btn btn-primary" id="btn-identify" disabled>Identify Medical Terms →</button>
+			</div>
+		</div>
+
+		<!-- Step 2: Select Terms -->
+		<div class="card step-panel hidden" id="panel-2">
+			<h2 class="card-title center">Medical Terms Detected</h2>
+			<p class="card-subtitle center">Choose which terms to translate and explain to the patient.</p>
+
+			<div class="table-wrap">
+				<table class="terms-table" id="terms-table">
+					<thead>
+						<tr>
+							<th class="col-check"><input type="checkbox" id="check-all" checked></th>
+							<th>Medical Term</th>
+							<th>Patient-Friendly Explanation</th>
+						</tr>
+					</thead>
+					<tbody id="terms-tbody"></tbody>
+				</table>
+			</div>
+
+			<div class="actions actions-between">
+				<button class="btn btn-ghost" id="btn-back-2">← Back</button>
+				<button class="btn btn-primary" id="btn-generate">Generate Simplified Summary →</button>
+			</div>
+		</div>
+
+		<!-- Step 3: Patient-Friendly Summary -->
+		<div class="card-grid step-panel hidden" id="panel-3">
+			<div class="card">
+				<div class="card-header-row">
+					<h2 class="card-title">Patient-Friendly Explanation</h2>
+					<button class="link-btn" id="btn-edit-manually">✎ Edit manually</button>
+				</div>
+				<div class="explanation-box" id="explanation-box" contenteditable="false"></div>
+			</div>
+
+			<div class="card">
+				<h2 class="card-title">Original Medical Document</h2>
+				<pre class="original-box" id="original-box"></pre>
+			</div>
+
+			<div class="card">
+				<h2 class="card-title">Detected Terms</h2>
+				<ul class="detected-list" id="detected-list"></ul>
+			</div>
+
+			<div class="actions actions-between span-all">
+				<button class="btn btn-ghost" id="btn-back-3">← Back</button>
+				<button class="btn btn-primary" id="btn-approve">Approve &amp; Export →</button>
+			</div>
+		</div>
+
+		<!-- Step 4: Confirmation & Export -->
+		<div class="card step-panel hidden" id="panel-4">
+			<div class="success-icon">✓</div>
+			<h2 class="card-title center">Summary Generated Successfully</h2>
+			<p class="card-subtitle center">The patient-friendly version is ready.</p>
+
+			<div class="doc-frame" id="doc-frame">
+				<div class="doc-header">
+					<img src="logo.png" alt="ClearMed" class="doc-logo">
+					<span class="doc-date" id="doc-date"></span>
+				</div>
+				<h3 class="doc-title">Patient-Friendly Summary</h3>
+				<div class="doc-explanation" id="doc-explanation"></div>
+				<div class="doc-original">
+					<h4>Original Document</h4>
+					<pre id="doc-original-text"></pre>
+				</div>
+				<div class="doc-terms">
+					<h4>Selected Terms</h4>
+					<ul id="doc-terms-list"></ul>
+				</div>
+				<p class="doc-disclaimer">Term explanations are sourced from MedlinePlus, a service of the U.S. National Library of Medicine (NIH), and were shortened and summarized with the help of AI for readability. This document is not a substitute for professional medical advice.</p>
+			</div>
+
+			<p class="next-label">What would you like to do next?</p>
+			<div class="export-cards">
+				<button class="export-card" id="btn-export-pdf">
+					<span class="export-icon">⬇</span>
+					<span class="export-title">Export PDF</span>
+					<span class="export-desc">Download the patient-friendly summary as a PDF.</span>
+				</button>
+				<button class="export-card" id="btn-print">
+					<span class="export-icon">🖶</span>
+					<span class="export-title">Print</span>
+					<span class="export-desc">Send the summary directly to your printer.</span>
+				</button>
+				<button class="export-card" id="btn-new-doc">
+					<span class="export-icon">＋</span>
+					<span class="export-title">Start New Document</span>
+					<span class="export-desc">Begin translating a new medical document.</span>
+				</button>
+			</div>
+		</div>
+
+	</section>
+
+	<aside class="progress-card">
+		<ol class="progress-steps" id="progress-steps">
+			<li data-step="1"><span class="progress-dot">1</span><span>Document Input</span></li>
+			<li data-step="2"><span class="progress-dot">2</span><span>Select Terms</span></li>
+			<li data-step="3"><span class="progress-dot">3</span><span>Simplified Summary</span></li>
+			<li data-step="4"><span class="progress-dot">4</span><span>Export</span></li>
+		</ol>
+	</aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
