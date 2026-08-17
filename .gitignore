@@ -9,3 +9,4 @@ output/
 logs/
 הגשות האב.zip
 health_topics.xml
+*.pem
