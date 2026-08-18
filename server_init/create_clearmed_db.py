@@ -202,11 +202,10 @@ _SYSTEM_PROMPT = (
 	"Do not include any reasoning or explanation in your response."
 )
 
-def select_short_explanation_ai(full_explanation, term=None, max_words=30):
-	sentences = _clean_candidate_sentences(full_explanation)
-	if not sentences:
-		return None
-
+# Split out from select_short_explanation_ai so the annotation tool (annotation/annotate.py)
+# can get the raw model index for comparison against a human label, without duplicating this
+# API-calling logic or the candidate-splitting logic in _clean_candidate_sentences.
+def _select_short_explanation_index_ai(sentences, term=None):
 	try:
 		client = _get_openai_client()
 		user_prompt = (
@@ -227,10 +226,21 @@ def select_short_explanation_ai(full_explanation, term=None, max_words=30):
 		selected_index = payload.get("selected_index")
 	except Exception:
 		logger.warning("AI short-explanation call failed for term %r; using fallback", term, exc_info=True)
-		return _select_short_explanation_fallback(full_explanation, max_words)
+		return None
 
 	if not isinstance(selected_index, int) or isinstance(selected_index, bool) or not (0 <= selected_index < len(sentences)):
 		logger.warning("AI short-explanation for term %r returned an invalid index (%r); using fallback", term, selected_index)
+		return None
+
+	return selected_index
+
+def select_short_explanation_ai(full_explanation, term=None, max_words=30):
+	sentences = _clean_candidate_sentences(full_explanation)
+	if not sentences:
+		return None
+
+	selected_index = _select_short_explanation_index_ai(sentences, term=term)
+	if selected_index is None:
 		return _select_short_explanation_fallback(full_explanation, max_words)
 
 	# Pulled directly from our own candidate list, never from model-generated text.
