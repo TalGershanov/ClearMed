@@ -13,18 +13,27 @@ Authenticates with HTTP Basic Auth on every request.
 | `OPENMRS_PASSWORD`         | OpenMRS service account password                     |
 | `OPENMRS_TIMEOUT_SECONDS`  | Per-request timeout, default `10`                    |
 | `OPENMRS_ORIGIN`           | The OpenMRS domain allowed to call `/openmrs/*` cross-origin (CORS) |
+| `OPENMRS_NOTE_CONCEPT_UUID` | Concept UUID for the clinical note observation the widget's note picker lists. Empty by default (instance-specific — see below); `/openmrs/patients/{uuid}/notes` returns 503 until it's set. |
 
 See `.env.example` at the repo root. `/openmrs/*` is mounted as its own
 sub-app in `server/api.py` with its own `CORSMiddleware`, so this allowlist
-applies only to those endpoints, not to `/analyse`/`/translate`/static — and
-it stays a closed allowlist (never a wildcard) on purpose (see below).
+applies only to those endpoints — the top-level `/analyse`/`/translate`
+(used by the same-origin `static/` wizard) and the static file mount aren't
+affected by it. `/analyse` and `/translate` are *also* registered a second
+time on the `/openmrs/*` sub-app (as `/openmrs/analyse`/`/openmrs/translate`,
+same handler functions, no logic duplicated) purely so the microfrontend can
+call them cross-origin under this same closed allowlist — it stays a closed
+allowlist (never a wildcard) on purpose either way (see below).
 
 ## Endpoints
 
-| Method | Path                          | Purpose                                    |
-| ------ | ----------------------------- | ------------------------------------------- |
-| GET    | `/openmrs/patients/{uuid}`    | Fetch a patient by UUID from OpenMRS.       |
-| POST   | `/openmrs/observations`       | Create a new observation in OpenMRS.        |
+| Method | Path                              | Purpose                                    |
+| ------ | ---------------------------------- | ------------------------------------------- |
+| GET    | `/openmrs/patients/{uuid}`         | Fetch a patient by UUID from OpenMRS.       |
+| POST   | `/openmrs/observations`            | Create a new observation in OpenMRS.        |
+| GET    | `/openmrs/patients/{uuid}/notes`   | List a patient's observations for `OPENMRS_NOTE_CONCEPT_UUID`, most recent first. |
+| POST   | `/openmrs/analyse`                 | Same as top-level `/analyse`, CORS-scoped for the microfrontend. |
+| POST   | `/openmrs/translate`               | Same as top-level `/translate`, CORS-scoped for the microfrontend. |
 
 ## Security & architecture best practices
 
@@ -39,8 +48,8 @@ it stays a closed allowlist (never a wildcard) on purpose (see below).
   trigger reads/writes against real patient records, so they're mounted as
   their own sub-app in `server/api.py` with `allow_origins` restricted to
   the trusted OpenMRS origin(s) (`OPENMRS_ORIGIN`, plus `localhost:8080` for
-  local dev) — the rest of the API (`/analyse`, `/translate`) isn't affected
-  by this policy at all.
+  local dev) — the top-level `/analyse`/`/translate`/static routes on the
+  main app aren't affected by this policy at all.
 - **Network exposure**: restrict with VPC/security groups or IP
   allowlisting between the AWS server and the OpenMRS instance where
   possible, on top of the CORS/auth layers.
@@ -57,7 +66,9 @@ it stays a closed allowlist (never a wildcard) on purpose (see below).
   installations unless both are seeded from the same dictionary (e.g.
   CIEL). Never hardcode a concept UUID as a magic constant — treat it as
   configuration, same as `clearmedApiBaseUrl` in the microfrontend's
-  config schema.
+  config schema and `OPENMRS_NOTE_CONCEPT_UUID` above (left empty by
+  default rather than guessing a value that would silently point at the
+  wrong concept on someone else's instance).
 - **Graceful degradation**: if OpenMRS is unreachable, `/openmrs/*` returns
   `503` with a clear message. OpenMRS is a bolt-on dependency — `/analyse`
   and `/translate` must keep working regardless of its availability.

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -33,6 +33,14 @@ class OpenMRSClient:
 
 	async def create_observation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
 		return await self._request("POST", "/ws/rest/v1/obs", json=payload)
+
+	async def list_observations(self, patient_uuid: str, concept_uuid: str) -> List[Dict[str, Any]]:
+		data = await self._request(
+			"GET", "/ws/rest/v1/obs",
+			params={"patient": patient_uuid, "concept": concept_uuid, "v": "default"},
+		)
+		results = data.get("results", [])
+		return sorted(results, key=lambda obs: obs.get("obsDatetime") or "", reverse=True)
 
 	async def aclose(self) -> None:
 		await self._client.aclose()
