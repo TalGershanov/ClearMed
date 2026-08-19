@@ -5,9 +5,18 @@
   },
   "extensions": [
     {
-      "name": "clearmed-widget",
+      "name": "clearmed-widget-link",
+      "component": "clearmedWidgetDashboardLink",
+      "slot": "patient-chart-dashboard-slot",
+      "meta": {
+        "slot": "clearmed-widget-dashboard-slot",
+        "path": "clearmed-widget"
+      }
+    },
+    {
+      "name": "clearmed-widget-content",
       "component": "clearmedWidget",
-      "slot": "patient-chart-dashboard-slot"
+      "slot": "clearmed-widget-dashboard-slot"
     }
   ]
 }

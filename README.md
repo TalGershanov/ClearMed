@@ -64,7 +64,8 @@ Open `http://127.0.0.1:8000/`.
 | POST   | `/analyse`                 | Detect medical terms in `{text}`, return them with explanations.      |
 | POST   | `/translate`               | Rewrite `{text}` using only the approved terms in `{ui_selection}`.   |
 | GET    | `/openmrs/patients/{uuid}` | Fetch a patient by UUID from OpenMRS.                                  |
-| POST   | `/openmrs/observations`    | Create a new observation in OpenMRS. See [`openmrs/README.md`](openmrs/README.md). |
+| POST   | `/openmrs/observations`    | Create a new observation in OpenMRS.                                   |
+| GET    | `/openmrs/patients/{uuid}/notes` | List a patient's clinical notes. See [`openmrs/README.md`](openmrs/README.md). |
 
 ## Deployment
 

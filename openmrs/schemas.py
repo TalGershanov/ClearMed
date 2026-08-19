@@ -23,3 +23,11 @@ class OpenMRSObservation(BaseModel):
 
 	uuid: str
 	display: Optional[str] = None
+
+class NoteSummary(BaseModel):
+	obs_uuid: str
+	obs_datetime: Optional[datetime] = None
+	note_text: str
+
+class NotesResponse(BaseModel):
+	notes: List[NoteSummary]

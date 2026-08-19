@@ -9,8 +9,14 @@ setup_logging()
 from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations, get_term_details, init_trie
 from logic.translator import ClinicalTranslator
 from openmrs.client import OpenMRSAPIError, close_openmrs_client, get_openmrs_client
-from openmrs.config import OPENMRS_ORIGIN
-from openmrs.schemas import ObservationCreateRequest, OpenMRSObservation, OpenMRSPatient
+from openmrs.config import OPENMRS_NOTE_CONCEPT_UUID, OPENMRS_ORIGIN
+from openmrs.schemas import (
+	NoteSummary,
+	NotesResponse,
+	ObservationCreateRequest,
+	OpenMRSObservation,
+	OpenMRSPatient,
+)
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -36,28 +42,12 @@ class TranslateRequest(BaseModel):
 	text: str
 	ui_selection: Dict[str, bool]
 
-@app.post("/analyse")
-async def analyse_text(request: AnalyseRequest):
-	logger.info("analysing text for medical terms")
-	result = detect_terms_with_explanations(request.text)
-	ui_selection = build_ui_selection(result)
-	return {"detected_terms": result, "ui_selection": ui_selection}
-
-@app.post("/translate")
-async def translate_text(request: TranslateRequest):
-	logger.info("translating text based on ui selection")
-	translator = ClinicalTranslator("short_explanation", get_term_details)
-	approved_terms = translator.get_approved_terms(request.ui_selection)
-	terms_with_data = translator.fetch_explanations(approved_terms)
-	final_text = translator.replace_terms(request.text, terms_with_data)
-	return {"translated_text": final_text, "explained_terms_list": approved_terms}
-
 # Mounted as its own sub-app (not routes on `app` directly) so the CORS
 # allowlist below applies only to /openmrs/*, not to every route on `app`
-# (/analyse, /translate, the static mount). These endpoints let a browser
-# trigger writes to patient records, so only the trusted OpenMRS deployment
-# (plus the local OpenMRS dev-shell) may call them cross-origin -- a closed
-# allowlist, never a wildcard.
+# (the static mount). These endpoints let a browser read/write patient-
+# adjacent data, so only the trusted OpenMRS deployment (plus the local
+# OpenMRS dev-shell) may call them cross-origin -- a closed allowlist,
+# never a wildcard.
 openmrs_app = FastAPI(title="ClearMed OpenMRS Integration")
 openmrs_app.add_middleware(
 	CORSMiddleware,
@@ -65,6 +55,29 @@ openmrs_app.add_middleware(
 	allow_methods=["GET", "POST"],
 	allow_headers=["Content-Type"],
 )
+
+# /analyse and /translate are registered on BOTH `app` (for the same-origin
+# static/ wizard, at their original top-level paths) and `openmrs_app` (so
+# the OpenMRS widget can call them cross-origin as /openmrs/analyse and
+# /openmrs/translate, inheriting openmrs_app's CORS scoping above) -- the
+# same handler function is just registered twice, no logic duplicated.
+@app.post("/analyse")
+@openmrs_app.post("/analyse")
+async def analyse_text(request: AnalyseRequest):
+	logger.info("analysing text for medical terms")
+	result = detect_terms_with_explanations(request.text)
+	ui_selection = build_ui_selection(result)
+	return {"detected_terms": result, "ui_selection": ui_selection}
+
+@app.post("/translate")
+@openmrs_app.post("/translate")
+async def translate_text(request: TranslateRequest):
+	logger.info("translating text based on ui selection")
+	translator = ClinicalTranslator("short_explanation", get_term_details)
+	approved_terms = translator.get_approved_terms(request.ui_selection)
+	terms_with_data = translator.fetch_explanations(approved_terms)
+	final_text = translator.replace_terms(request.text, terms_with_data)
+	return {"translated_text": final_text, "explained_terms_list": approved_terms}
 
 @openmrs_app.get("/patients/{patient_uuid}", response_model=OpenMRSPatient)
 async def get_openmrs_patient(patient_uuid: str):
@@ -108,6 +121,34 @@ async def create_openmrs_observation(request: ObservationCreateRequest):
 		raise HTTPException(status_code=503, detail=str(e))
 	except OpenMRSAPIError as e:
 		raise HTTPException(status_code=e.status_code, detail=e.message)
+
+@openmrs_app.get("/patients/{patient_uuid}/notes", response_model=NotesResponse)
+async def get_patient_notes(patient_uuid: str):
+	logger.info("listing OpenMRS clinical notes for patient %s", patient_uuid)
+	if not OPENMRS_NOTE_CONCEPT_UUID:
+		raise HTTPException(
+			status_code=503,
+			detail="OPENMRS_NOTE_CONCEPT_UUID is not configured; set it to your OpenMRS "
+			"instance's concept UUID for clinical notes (see openmrs/README.md).",
+		)
+	try:
+		client = get_openmrs_client()
+		observations = await client.list_observations(patient_uuid, OPENMRS_NOTE_CONCEPT_UUID)
+	except RuntimeError as e:
+		raise HTTPException(status_code=503, detail=str(e))
+	except OpenMRSAPIError as e:
+		raise HTTPException(status_code=e.status_code, detail=e.message)
+	notes = []
+	for obs in observations:
+		value = obs.get("value")
+		if isinstance(value, dict):
+			note_text = value.get("display", "")
+		elif value is None:
+			note_text = ""
+		else:
+			note_text = str(value)
+		notes.append(NoteSummary(obs_uuid=obs["uuid"], obs_datetime=obs.get("obsDatetime"), note_text=note_text))
+	return NotesResponse(notes=notes)
 
 app.mount("/openmrs", openmrs_app)
 
