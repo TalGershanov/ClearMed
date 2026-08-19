@@ -11,3 +11,5 @@ logs/
 health_topics.xml
 *.pem
 *.bak
+openmrs-frontend/esm-clearmed-widget/node_modules/
+openmrs-frontend/esm-clearmed-widget/dist/

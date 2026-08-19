@@ -15,6 +15,9 @@ a health information service of the U.S. National Library of Medicine (NIH).
 - **`static/`** — the frontend (a 4-step wizard: upload → select terms → review
   summary → export/print). Served directly by FastAPI as static files, mounted on
   the same origin as the API, so no CORS setup is needed.
+- **`openmrs/`** — server-to-server integration with the OpenMRS REST API
+  (fetch patient data, post observations). See [`openmrs/README.md`](openmrs/README.md)
+  for env vars and security/architecture best practices.
 
 ## Setup
 
@@ -24,11 +27,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Create a `.env` file with an OpenAI key — this is only needed for the database-build
-step below, not for running the server itself:
-```
-OPENAI_API_KEY=sk-...
-```
+Copy `.env.example` to `.env` and fill in the values you need. `OPENAI_API_KEY`
+is only needed for the database-build step below, not for running the server
+itself. `OPENMRS_*` is only needed for the `/openmrs/*` endpoints — see
+[`openmrs/README.md`](openmrs/README.md).
 
 ## Building the database
 
@@ -57,10 +59,12 @@ Open `http://127.0.0.1:8000/`.
 
 ## API endpoints
 
-| Method | Path         | Purpose                                                              |
-| ------ | ------------ | --------------------------------------------------------------------- |
-| POST   | `/analyse`   | Detect medical terms in `{text}`, return them with explanations.      |
-| POST   | `/translate` | Rewrite `{text}` using only the approved terms in `{ui_selection}`.   |
+| Method | Path                       | Purpose                                                              |
+| ------ | -------------------------- | --------------------------------------------------------------------- |
+| POST   | `/analyse`                 | Detect medical terms in `{text}`, return them with explanations.      |
+| POST   | `/translate`               | Rewrite `{text}` using only the approved terms in `{ui_selection}`.   |
+| GET    | `/openmrs/patients/{uuid}` | Fetch a patient by UUID from OpenMRS.                                  |
+| POST   | `/openmrs/observations`    | Create a new observation in OpenMRS. See [`openmrs/README.md`](openmrs/README.md). |
 
 ## Deployment
 
