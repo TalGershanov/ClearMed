@@ -34,63 +34,57 @@ for the future.
 ```mermaid
 flowchart TD
     User["User"]
+    Wizard["Web Wizard<br/>static/<br/>CURRENT"]
 
-    ClearMed["ClearMed"]
+    Upload["1. Upload Document<br/>.txt / .pdf, read in-browser<br/>CURRENT"]
+    Select["2. Select Terms<br/>CURRENT"]
+    Summary["3. Review Summary<br/>editable<br/>CURRENT"]
+    Export["4. Export / Print<br/>client-side PDF / print<br/>CURRENT"]
+    Camera["Camera Capture<br/>PLANNED"]
 
-    WebWizard["Web Wizard<br/>CURRENT"]
+    API["FastAPI App<br/>server/api.py<br/>CURRENT"]
+    Detector["Term Detector<br/>logic/medical_term_detector.py<br/>CURRENT"]
+    Trie["Term Trie, in memory<br/>logic/medical_term_trie.py<br/>CURRENT"]
+    Translator["Translator<br/>logic/translator.py<br/>CURRENT"]
+    DAL["DAL<br/>DAL/db.py<br/>CURRENT"]
+    DB[("clearmed.db<br/>SQLite<br/>CURRENT")]
 
-    Upload["Upload Document<br/>CURRENT"]
-    SelectTerms["Select Terms<br/>CURRENT"]
-    ReviewSummary["Review Summary<br/>CURRENT"]
-    Export["Export / Print<br/>CURRENT"]
-
-    CameraCapture["Camera Capture<br/>PLANNED"]
-
-    FastAPI["FastAPI App<br/>CURRENT"]
-    TermDetector["Term Detector<br/>CURRENT"]
-    TermTrie["Term Trie<br/>CURRENT"]
-    Translator["Translator<br/>CURRENT"]
-    DAL["DAL<br/>CURRENT"]
-    DB["clearmed.db<br/>CURRENT"]
-
-    OfflineBuild["server_init Build<br/>CURRENT"]
+    Bootstrap["server_init Bootstrap<br/>offline, not run by server<br/>CURRENT"]
     XML["health_topics.xml<br/>CURRENT"]
-    GPT["GPT-4o-mini<br/>CURRENT"]
+    GPT["OpenAI GPT-4o-mini<br/>CURRENT"]
 
     AIRewriter["AI Rewriter<br/>PLANNED"]
     MultiLang["Multi-language Support<br/>PLANNED"]
     HospitalSim["Hospital System Simulation<br/>PLANNED"]
 
-    User --> ClearMed
+    User --> Wizard
+    Wizard --> Upload
+    Upload -.-> Camera
 
-    ClearMed --> WebWizard
-    ClearMed --> FastAPI
+    Upload -- "POST /analyse" --> API
+    API -- "detected terms" --> Select
+    Select -- "POST /translate" --> API
+    API -- "translated text" --> Summary
+    Summary --> Export
 
-    WebWizard --> Upload
-    Upload --> SelectTerms
-    SelectTerms --> ReviewSummary
-    ReviewSummary --> Export
+    API --> Detector
+    API --> Translator
 
-    Upload -.-> CameraCapture
-
-    SelectTerms --> FastAPI
-    ReviewSummary --> FastAPI
-
-    FastAPI --> TermDetector
-    TermDetector --> TermTrie
-    FastAPI --> Translator
-
-    TermDetector --> DAL
-    Translator --> DAL
+    Detector -- "trie.find_terms()" --> Trie
+    Detector -- "get_term_details()" --> DAL
+    Translator -- "fetch_explanations()" --> DAL
     DAL --> DB
 
-    OfflineBuild --> XML
-    OfflineBuild --> GPT
-    OfflineBuild --> DB
+    API -- "startup: init_trie()" --> Trie
+    Trie -- "build_trie_from_db()" --> DAL
+
+    Bootstrap --> XML
+    Bootstrap --> GPT
+    Bootstrap --> DB
 
     Translator -.-> AIRewriter
-    ClearMed -.-> MultiLang
-    ClearMed -.-> HospitalSim
+    Wizard -.-> MultiLang
+    Wizard -.-> HospitalSim
 ```
 
 **CURRENT** = already implemented
