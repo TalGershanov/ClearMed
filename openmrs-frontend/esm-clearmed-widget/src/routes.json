@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.openmrs.org/routes.schema.json",
+  "backendDependencies": {
+    "webservices.rest": ">=2.2.0"
+  },
+  "extensions": [
+    {
+      "name": "clearmed-widget-link",
+      "component": "clearmedWidgetDashboardLink",
+      "slot": "patient-chart-dashboard-slot",
+      "meta": {
+        "slot": "clearmed-widget-dashboard-slot",
+        "path": "clearmed-widget"
+      }
+    },
+    {
+      "name": "clearmed-widget-content",
+      "component": "clearmedWidget",
+      "slot": "clearmed-widget-dashboard-slot"
+    }
+  ]
+}
