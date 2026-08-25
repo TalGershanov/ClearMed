@@ -241,6 +241,10 @@ body {
 	color: var(--color-text);
 }
 
+.upload-camera-row {
+	display: none;
+}
+
 /* Actions */
 .actions {
 	display: flex;
@@ -698,5 +702,17 @@ body {
 	.logo-img,
 	.doc-logo {
 		height: 32px;
+	}
+
+	.upload-camera-row {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 12px;
+		margin-top: 12px;
+	}
+
+	.upload-camera-divider {
+		color: var(--color-text-muted);
 	}
 }

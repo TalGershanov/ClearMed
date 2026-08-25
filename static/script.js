@@ -38,6 +38,7 @@ function goToStep(step) {
 
 const uploadBox = el("upload-box");
 const fileInput = el("file-input");
+const cameraInput = el("camera-input");
 const btnIdentify = el("btn-identify");
 
 uploadBox.addEventListener("dragover", (e) => {
@@ -63,6 +64,12 @@ fileInput.addEventListener("change", () => {
 	}
 });
 
+cameraInput.addEventListener("change", () => {
+	if (cameraInput.files.length) {
+		handleFile(cameraInput.files[0]);
+	}
+});
+
 async function handleFile(file) {
 	const name = file.name.toLowerCase();
 	btnIdentify.disabled = true;
@@ -70,7 +77,9 @@ async function handleFile(file) {
 
 	try {
 		let text;
-		if (name.endsWith(".pdf")) {
+		if (file.type.startsWith("image/")) {
+			text = await readImageAsText(file);
+		} else if (name.endsWith(".pdf")) {
 			text = await readPdfAsText(file);
 		} else {
 			text = await readTextFile(file);
@@ -96,6 +105,17 @@ function readTextFile(file) {
 		reader.onerror = () => reject(reader.error);
 		reader.readAsText(file);
 	});
+}
+
+async function readImageAsText(file) {
+	const { data } = await Tesseract.recognize(file, "eng", {
+		logger: (m) => {
+			if (m.status === "recognizing text") {
+				el("upload-box-filename").textContent = `Reading photo… ${Math.round(m.progress * 100)}%`;
+			}
+		},
+	});
+	return data.text;
 }
 
 async function readPdfAsText(file) {
@@ -303,6 +323,7 @@ el("btn-new-doc").addEventListener("click", () => {
 	state.explainedTermsList = [];
 
 	fileInput.value = "";
+	cameraInput.value = "";
 	el("upload-box-filename").textContent = "";
 	btnIdentify.disabled = true;
 

@@ -32,6 +32,12 @@
 			</label>
 			<input type="file" id="file-input" accept=".txt,.pdf" hidden>
 
+			<div class="upload-camera-row">
+				<span class="upload-camera-divider">or</span>
+				<label for="camera-input" class="btn btn-ghost">Take a Photo</label>
+			</div>
+			<input type="file" id="camera-input" accept="image/*" capture="environment" hidden>
+
 			<div class="actions actions-end">
 				<button class="btn btn-primary" id="btn-identify" disabled>Identify Medical Terms →</button>
 			</div>
@@ -146,6 +152,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
