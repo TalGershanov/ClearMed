@@ -14,6 +14,9 @@
     "build": "rspack --mode production",
     "typescript": "tsc"
   },
+  "dependencies": {
+    "jspdf": "^2.5.1"
+  },
   "peerDependencies": {
     "@openmrs/esm-framework": "^10.0.0",
     "@openmrs/esm-styleguide": "^10.0.0",

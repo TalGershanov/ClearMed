@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "openmrs-clearmed-widget",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start", "--prefix", "openmrs-frontend/esm-clearmed-widget", "--", "--backend", "https://o3.openmrs.org", "--open", "false"],
+      "port": 8080
+    }
+  ]
+}

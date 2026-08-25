@@ -134,6 +134,38 @@ to `main`: it SSHs in, `git pull`s, and restarts `uvicorn`.
 
 ---
 
+## Try the OpenMRS widget
+
+An OpenMRS 3.x microfrontend widget (`openmrs-frontend/esm-clearmed-widget/`)
+adds a "ClearMed" tab to the patient chart, calling the already-deployed
+backend above — no database build or local ClearMed server needed.
+
+```bash
+cd openmrs-frontend/esm-clearmed-widget
+npm install
+```
+
+`dev3.openmrs.org`'s live `routes.registry.json` endpoint currently returns
+its app list wrapped one level too deep (a confirmed bug on that server, not
+this repo) — work around it once per session:
+
+```bash
+curl -s "https://dev3.openmrs.org/openmrs/spa/routes.registry.json" \
+  | python3 -c "import json,sys; json.dump(json.load(sys.stdin)['routes'], open('routes.registry.fixed.json','w'))"
+```
+
+Then start the dev shell:
+
+```bash
+npm start -- --backend https://dev3.openmrs.org --routes routes.registry.fixed.json
+```
+
+Open the printed URL (e.g. `http://localhost:8080/openmrs/spa`), log in with
+the `dev3.openmrs.org` demo credentials (`admin` / `Admin123`), open any
+patient's chart, and click the **ClearMed** tab.
+
+---
+
 ## Authors
 
 **Tal Gershanov**

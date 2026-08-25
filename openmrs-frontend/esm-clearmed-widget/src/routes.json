@@ -8,6 +8,7 @@
       "name": "clearmed-widget-link",
       "component": "clearmedWidgetDashboardLink",
       "slot": "patient-chart-dashboard-slot",
+      "order": -1,
       "meta": {
         "slot": "clearmed-widget-dashboard-slot",
         "path": "clearmed-widget"
