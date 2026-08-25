@@ -40,6 +40,8 @@ const uploadBox = el("upload-box");
 const fileInput = el("file-input");
 const cameraInput = el("camera-input");
 const btnIdentify = el("btn-identify");
+const photoReview = el("photo-review");
+const photoReviewBox = el("photo-review-box");
 
 uploadBox.addEventListener("dragover", (e) => {
 	e.preventDefault();
@@ -75,9 +77,12 @@ async function handleFile(file) {
 	btnIdentify.disabled = true;
 	el("upload-box-filename").textContent = "Reading file…";
 
+	const isImage = file.type.startsWith("image/");
+	photoReview.classList.add("hidden");
+
 	try {
 		let text;
-		if (file.type.startsWith("image/")) {
+		if (isImage) {
 			text = await readImageAsText(file);
 		} else if (name.endsWith(".pdf")) {
 			text = await readPdfAsText(file);
@@ -90,6 +95,9 @@ async function handleFile(file) {
 		btnIdentify.disabled = state.originalText.length === 0;
 		if (state.originalText.length === 0) {
 			el("upload-box-filename").textContent = `${file.name} (no text found)`;
+		} else if (isImage) {
+			photoReviewBox.value = state.originalText;
+			photoReview.classList.remove("hidden");
 		}
 	} catch (err) {
 		console.error(err);
@@ -97,6 +105,11 @@ async function handleFile(file) {
 		btnIdentify.disabled = true;
 	}
 }
+
+photoReviewBox.addEventListener("input", () => {
+	state.originalText = photoReviewBox.value.trim();
+	btnIdentify.disabled = state.originalText.length === 0;
+});
 
 function readTextFile(file) {
 	return new Promise((resolve, reject) => {
@@ -324,6 +337,8 @@ el("btn-new-doc").addEventListener("click", () => {
 
 	fileInput.value = "";
 	cameraInput.value = "";
+	photoReviewBox.value = "";
+	photoReview.classList.add("hidden");
 	el("upload-box-filename").textContent = "";
 	btnIdentify.disabled = true;
 
