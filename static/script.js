@@ -290,23 +290,84 @@ function renderExportDoc() {
 	});
 }
 
+// Writes the PDF with jsPDF's native text API (doc.text/splitTextToSize)
+// instead of doc.html() -- doc.html() rasterizes the live DOM to a canvas,
+// which is both slow (a full render pass) and produces uneven letter
+// spacing since the text is no longer real vector PDF text at that point.
+// Native text is fast and correctly kerned.
 el("btn-export-pdf").addEventListener("click", () => {
 	const btn = el("btn-export-pdf");
 	btn.disabled = true;
+
 	const { jsPDF } = window.jspdf;
 	const doc = new jsPDF({ unit: "pt", format: "letter" });
-	const frame = el("doc-frame");
 
-	doc.html(frame, {
-		callback: (doc) => {
-			doc.save("clearmed-summary.pdf");
-			btn.disabled = false;
-		},
-		x: 20,
-		y: 20,
-		width: 555,
-		windowWidth: frame.scrollWidth,
+	const marginX = 40;
+	const marginTop = 50;
+	const marginBottom = 50;
+	const pageWidth = doc.internal.pageSize.getWidth();
+	const pageHeight = doc.internal.pageSize.getHeight();
+	const contentWidth = pageWidth - marginX * 2;
+	let y = marginTop;
+
+	function ensureSpace(lineHeight) {
+		if (y + lineHeight > pageHeight - marginBottom) {
+			doc.addPage();
+			y = marginTop;
+		}
+	}
+
+	function writeParagraph(text, opts = {}) {
+		const fontSize = opts.fontSize ?? 11;
+		const style = opts.style ?? "normal";
+		const lineHeight = opts.lineHeight ?? fontSize * 1.4;
+		const color = opts.color ?? [30, 41, 59];
+		const spacingAfter = opts.spacingAfter ?? 10;
+
+		doc.setFont("helvetica", style);
+		doc.setFontSize(fontSize);
+		doc.setTextColor(color[0], color[1], color[2]);
+		const lines = doc.splitTextToSize(text, contentWidth);
+		lines.forEach((line) => {
+			ensureSpace(lineHeight);
+			doc.text(line, marginX, y);
+			y += lineHeight;
+		});
+		y += spacingAfter;
+	}
+
+	doc.setFont("helvetica", "bold");
+	doc.setFontSize(10);
+	doc.setTextColor(100, 116, 139);
+	doc.text("ClearMed", marginX, y);
+	doc.text(el("doc-date").textContent, pageWidth - marginX, y, { align: "right" });
+	y += 24;
+
+	writeParagraph("Patient-Friendly Summary", { fontSize: 16, style: "bold", spacingAfter: 14 });
+
+	sentencesOf(state.translatedText).forEach((sentence) => {
+		writeParagraph(sentence, { spacingAfter: 8 });
 	});
+
+	y += 6;
+	writeParagraph("Original Document", { style: "bold", spacingAfter: 6 });
+	writeParagraph(state.originalText, { fontSize: 9, lineHeight: 12, color: [51, 65, 85], spacingAfter: 14 });
+
+	writeParagraph("Selected Terms", { style: "bold", spacingAfter: 6 });
+	state.explainedTermsList.forEach((term) => {
+		writeParagraph(`• ${term}`, { fontSize: 10, spacingAfter: 4 });
+	});
+
+	y += 10;
+	writeParagraph(
+		"Term explanations are sourced from MedlinePlus, a service of the U.S. National Library of " +
+			"Medicine (NIH), and were shortened and summarized with the help of AI for readability. This " +
+			"document is not a substitute for professional medical advice.",
+		{ fontSize: 8, lineHeight: 11, color: [100, 116, 139] },
+	);
+
+	doc.save("clearmed-summary.pdf");
+	btn.disabled = false;
 });
 
 el("btn-print").addEventListener("click", () => {
