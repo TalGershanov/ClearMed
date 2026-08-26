@@ -16,13 +16,14 @@ a health information service of the U.S. National Library of Medicine (NIH).
 * Rewrite/annotate document text using only the terms the patient approved
 * Offline database build pipeline from MedlinePlus XML, using GPT-4o-mini to generate
   each term's patient-facing explanation
-
+* Hospital system simulation
+* Upload a document by taking a picture on mobile
+  
 ### Planned
 
-* Hospital system simulation
 * Multiple language support
-* Upload a document by taking a picture on mobile
 * AI fine-tuning to reword and shorten the explanation paragraphs
+* tone adjusting 
 
 ---
 
