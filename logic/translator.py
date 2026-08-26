@@ -30,12 +30,26 @@ class ClinicalTranslator:
 		if not terms_dict:
 			logger.warning("No terms dictionary provided for replacement.")
 			return original_text
-		translated_text = original_text
+		# Match every term against the original text only -- matching against
+		# the text as it's progressively substituted would let one term's
+		# explanation (which may itself mention another selected term) get
+		# matched and wrapped again, producing nested "(...(...).)" parens.
 		# long to short to avoid switching blood vs blood pressure
 		sorted_terms = sorted(terms_dict.keys(), key=len, reverse=True)
+		matches = []
 		for term in sorted_terms:
-			explanation = terms_dict[term]
 			pattern = re.compile(rf'\b({re.escape(term)})\b', re.IGNORECASE)
-			translated_text = pattern.sub(lambda m, explanation=explanation: f"{m.group(1)} ({explanation})", translated_text)
+			for m in pattern.finditer(original_text):
+				matches.append((m.start(), m.end(), terms_dict[term]))
+		matches.sort(key=lambda span: span[0])
+		non_overlapping = []
+		last_end = -1
+		for start, end, explanation in matches:
+			if start >= last_end:
+				non_overlapping.append((start, end, explanation))
+				last_end = end
+		translated_text = original_text
+		for start, end, explanation in sorted(non_overlapping, reverse=True):
+			translated_text = f"{translated_text[:end]} ({explanation}){translated_text[end:]}"
 		logger.info("Finished translating terms in text.")
 		return translated_text

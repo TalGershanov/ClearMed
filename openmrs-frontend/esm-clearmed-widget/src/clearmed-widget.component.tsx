@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { useConfig } from "@openmrs/esm-framework";
 import {
   analyseText,
@@ -8,13 +9,14 @@ import {
 } from "./clearmed-api";
 import type { ConfigSchema } from "./config-schema";
 import logo from "./assets/logo-symbol.png";
+import logoFull from "./assets/logo.png";
 import styles from "./clearmed-widget.scss";
 
 interface ClearmedWidgetProps {
   patientUuid: string;
 }
 
-type Step = "writing-notes" | "reviewing-terms" | "result";
+type Step = "writing-notes" | "reviewing-terms" | "reviewing-translation" | "result";
 
 function combineNoteText(visitNotes: string, recommendation: string): string {
   return `Visit notes:\n${visitNotes}\n\nRecommendation & medication:\n${recommendation}`;
@@ -23,7 +25,7 @@ function combineNoteText(visitNotes: string, recommendation: string): string {
 // Mirrors static/script.js's sentencesOf() so the generated document reads
 // the same way as the standalone wizard's: one <p> per sentence.
 function sentencesOf(text: string): string[] {
-  const parts = text.match(/[^.!?]+[.!?]*/g);
+  const parts = text.match(/[^.!?]+[.!?]*[)"']*/g);
   return parts ? parts.map((s) => s.trim()).filter(Boolean) : [text];
 }
 
@@ -44,7 +46,8 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
   const [translateResult, setTranslateResult] = useState<TranslateResponse | null>(null);
   const [translateError, setTranslateError] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
-  const [exportingPdf, setExportingPdf] = useState(false);
+  const [editedText, setEditedText] = useState("");
+  const [editingManually, setEditingManually] = useState(false);
 
   const canSubmit = visitNotes.trim().length > 0 || recommendation.trim().length > 0;
 
@@ -77,7 +80,8 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
         uiSelection,
       );
       setTranslateResult(result);
-      setStep("result");
+      setEditedText(result.translated_text);
+      setStep("reviewing-translation");
     } catch (e) {
       setTranslateError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -95,6 +99,25 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
     setUiSelection({});
     setTranslateResult(null);
     setTranslateError(null);
+    setEditedText("");
+    setEditingManually(false);
+  };
+
+  // Returns to term selection from the review-translation step -- clears
+  // the now-stale translation so regenerating reflects any changed term
+  // selection, but keeps the detected terms and notes so the user doesn't
+  // have to re-submit them.
+  const backToTerms = () => {
+    setStep("reviewing-terms");
+    setTranslateResult(null);
+    setTranslateError(null);
+    setEditedText("");
+    setEditingManually(false);
+  };
+
+  const approveTranslation = () => {
+    setEditingManually(false);
+    setStep("result");
   };
 
   // Full reset -- matches static/script.js's btn-new-doc handler. Only
@@ -108,98 +131,8 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
     setUiSelection({});
     setTranslateResult(null);
     setTranslateError(null);
-  };
-
-  // Writes the PDF with jsPDF's native text API (doc.text/splitTextToSize)
-  // instead of doc.html() -- doc.html() rasterizes the live DOM to a canvas,
-  // which is both slow (a full render pass) and produces uneven letter
-  // spacing since the text is no longer real vector PDF text at that point.
-  // Native text is fast and correctly kerned. The exported PDF intentionally
-  // skips the small logo image (kept on-screen only) to avoid an async
-  // image-loading step for something this minor.
-  const exportPdf = async (translated: TranslateResponse) => {
-    setExportingPdf(true);
-    try {
-      const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF({ unit: "pt", format: "letter" });
-
-      const marginX = 40;
-      const marginTop = 50;
-      const marginBottom = 50;
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const contentWidth = pageWidth - marginX * 2;
-      let y = marginTop;
-
-      const ensureSpace = (lineHeight: number) => {
-        if (y + lineHeight > pageHeight - marginBottom) {
-          doc.addPage();
-          y = marginTop;
-        }
-      };
-
-      const writeParagraph = (
-        text: string,
-        opts: {
-          fontSize?: number;
-          style?: "normal" | "bold" | "italic";
-          lineHeight?: number;
-          color?: [number, number, number];
-          spacingAfter?: number;
-        } = {},
-      ) => {
-        const fontSize = opts.fontSize ?? 11;
-        const style = opts.style ?? "normal";
-        const lineHeight = opts.lineHeight ?? fontSize * 1.4;
-        const color = opts.color ?? [30, 41, 59];
-        const spacingAfter = opts.spacingAfter ?? 10;
-
-        doc.setFont("helvetica", style);
-        doc.setFontSize(fontSize);
-        doc.setTextColor(color[0], color[1], color[2]);
-        const lines: string[] = doc.splitTextToSize(text, contentWidth);
-        lines.forEach((line) => {
-          ensureSpace(lineHeight);
-          doc.text(line, marginX, y);
-          y += lineHeight;
-        });
-        y += spacingAfter;
-      };
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139);
-      doc.text("ClearMed", marginX, y);
-      doc.text(today, pageWidth - marginX, y, { align: "right" });
-      y += 24;
-
-      writeParagraph("Patient-Friendly Summary", { fontSize: 16, style: "bold", spacingAfter: 14 });
-
-      sentencesOf(translated.translated_text).forEach((sentence) => {
-        writeParagraph(sentence, { spacingAfter: 8 });
-      });
-
-      y += 6;
-      writeParagraph("Original Notes", { style: "bold", spacingAfter: 6 });
-      writeParagraph(combinedText, { fontSize: 9, lineHeight: 12, color: [51, 65, 85], spacingAfter: 14 });
-
-      writeParagraph("Selected Terms", { style: "bold", spacingAfter: 6 });
-      translated.explained_terms_list.forEach((term) => {
-        writeParagraph(`• ${term}`, { fontSize: 10, spacingAfter: 4 });
-      });
-
-      y += 10;
-      writeParagraph(
-        "Term explanations are sourced from MedlinePlus, a service of the U.S. National Library of " +
-          "Medicine (NIH), and were shortened and summarized with the help of AI for readability. This " +
-          "document is not a substitute for professional medical advice.",
-        { fontSize: 8, lineHeight: 11, color: [100, 116, 139] },
-      );
-
-      doc.save("clearmed-summary.pdf");
-    } finally {
-      setExportingPdf(false);
-    }
+    setEditedText("");
+    setEditingManually(false);
   };
 
   const printDoc = () => {
@@ -212,6 +145,47 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
     month: "long",
     day: "numeric",
   });
+
+  // Shared between the on-screen document and its print-only portal copy
+  // (see the "result" step below) so the two can't drift out of sync.
+  const renderDocContent = () => {
+    if (!translateResult) return null;
+    return (
+      <>
+        <div className={styles.docHeader}>
+          <img src={logoFull} alt="ClearMed" className={styles.docLogo} />
+          <span className={styles.docDate}>{today}</span>
+        </div>
+        <h3 className={styles.docTitle}>Patient-Friendly Summary</h3>
+
+        <div className={styles.docExplanation}>
+          {sentencesOf(editedText).map((sentence, i) => (
+            <p key={i}>{sentence}</p>
+          ))}
+        </div>
+
+        <div className={styles.docOriginal}>
+          <h4>Original Notes</h4>
+          <pre>{combinedText}</pre>
+        </div>
+
+        <div className={styles.docTerms}>
+          <h4>Selected Terms</h4>
+          <ul>
+            {translateResult.explained_terms_list.map((term) => (
+              <li key={term}>{term}</li>
+            ))}
+          </ul>
+        </div>
+
+        <p className={styles.docDisclaimer}>
+          Term explanations are sourced from MedlinePlus, a service of the U.S. National Library of
+          Medicine (NIH), and were shortened and summarized with the help of AI for readability. This
+          document is not a substitute for professional medical advice.
+        </p>
+      </>
+    );
+  };
 
   return (
     <div className={styles.widget}>
@@ -296,61 +270,84 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
         </section>
       )}
 
-      {step === "result" && translateResult && (
+      {step === "reviewing-translation" && translateResult && (
         <section>
-          <div className={`${styles.docFrame} clearmed-print-doc`}>
-            <div className={styles.docSuccessIcon}>✓</div>
-            <p className={styles.docSuccessText}>The patient-friendly version is ready.</p>
-
-            <div className={styles.docHeader}>
-              <img src={logo} alt="ClearMed" className={styles.docLogo} />
-              <span className={styles.docDate}>{today}</span>
+          <div className={styles.card}>
+            <div className={styles.cardHeaderRow}>
+              <div className={styles.cardTitle}>Patient-Friendly Explanation</div>
+              <button
+                type="button"
+                className={styles.linkBtn}
+                onClick={() => setEditingManually((prev) => !prev)}
+              >
+                {editingManually ? "✓ Done editing" : "✎ Edit manually"}
+              </button>
             </div>
-            <h3 className={styles.docTitle}>Patient-Friendly Summary</h3>
-
-            <div className={styles.docExplanation}>
-              {sentencesOf(translateResult.translated_text).map((sentence, i) => (
-                <p key={i}>{sentence}</p>
-              ))}
-            </div>
-
-            <div className={styles.docOriginal}>
-              <h4>Original Notes</h4>
-              <pre>{combinedText}</pre>
-            </div>
-
-            <div className={styles.docTerms}>
-              <h4>Selected Terms</h4>
-              <ul>
-                {translateResult.explained_terms_list.map((term) => (
-                  <li key={term}>{term}</li>
+            <div className={styles.cardAccent} />
+            {editingManually ? (
+              <textarea
+                className={styles.textarea}
+                value={editedText}
+                onChange={(e) => setEditedText(e.target.value)}
+              />
+            ) : (
+              <div className={styles.docExplanation}>
+                {sentencesOf(editedText).map((sentence, i) => (
+                  <p key={i}>{sentence}</p>
                 ))}
-              </ul>
-            </div>
+              </div>
+            )}
+          </div>
 
-            <p className={styles.docDisclaimer}>
-              Term explanations are sourced from MedlinePlus, a service of the U.S. National Library of
-              Medicine (NIH), and were shortened and summarized with the help of AI for readability. This
-              document is not a substitute for professional medical advice.
-            </p>
+          <div className={styles.card}>
+            <div className={styles.cardTitle}>Original Notes</div>
+            <div className={styles.cardAccent} />
+            <pre className={styles.originalBox}>{combinedText}</pre>
+          </div>
+
+          <div className={styles.card}>
+            <div className={styles.cardTitle}>Selected Terms</div>
+            <div className={styles.cardAccent} />
+            <ul className={styles.checklist}>
+              {translateResult.explained_terms_list.map((term) => (
+                <li key={term}>{term}</li>
+              ))}
+            </ul>
           </div>
 
           <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.btnPrimary}
-              onClick={() => exportPdf(translateResult)}
-              disabled={exportingPdf}
-            >
-              {exportingPdf ? "Exporting…" : "Export PDF"}
+            <button type="button" className={styles.btnPrimary} onClick={approveTranslation}>
+              Approve &amp; Export →
             </button>
-            <button type="button" className={styles.btnGhost} onClick={printDoc}>
+            <button type="button" className={styles.btnGhost} onClick={backToTerms}>
+              Back
+            </button>
+          </div>
+        </section>
+      )}
+
+      {step === "result" && translateResult && (
+        <section>
+          <div className={styles.docSuccessIcon}>✓</div>
+          <p className={styles.docSuccessText}>The patient-friendly version is ready.</p>
+
+          <div className={styles.docFrame}>
+            {renderDocContent()}
+          </div>
+
+          <div className={styles.actions}>
+            <button type="button" className={styles.btnPrimary} onClick={printDoc}>
               Print
             </button>
             <button type="button" className={styles.btnGhost} onClick={startOver}>
-              Start New Document
+              Start New Visit
             </button>
           </div>
+
+          {createPortal(
+            <div className={`${styles.docFrame} clearmed-print-portal`}>{renderDocContent()}</div>,
+            document.body,
+          )}
         </section>
       )}
     </div>

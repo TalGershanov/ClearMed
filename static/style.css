@@ -682,6 +682,13 @@ body {
 		box-shadow: none;
 		border: none;
 	}
+	/* .progress-card uses order: -1 to visually appear before .content on
+	   screen despite coming after it in the DOM -- print pagination follows
+	   DOM order, not the flex-reordered paint order, so visibility: hidden
+	   alone isn't enough to keep it out of the printed page; force it off. */
+	.progress-card {
+		display: none;
+	}
 }
 
 /* Responsive */

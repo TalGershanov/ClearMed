@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["start", "--prefix", "openmrs-frontend/esm-clearmed-widget", "--", "--backend", "https://o3.openmrs.org", "--open", "false"],
       "port": 8080
+    },
+    {
+      "name": "clearmed-app",
+      "runtimeExecutable": ".venv/bin/uvicorn",
+      "runtimeArgs": ["server.api:app", "--port", "8123"],
+      "port": 8123
     }
   ]
 }
