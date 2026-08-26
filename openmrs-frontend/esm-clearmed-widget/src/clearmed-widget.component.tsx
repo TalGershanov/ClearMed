@@ -340,7 +340,7 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
               Print
             </button>
             <button type="button" className={styles.btnGhost} onClick={startOver}>
-              Start New Document
+              Start New Visit
             </button>
           </div>
 
