@@ -41,7 +41,7 @@ flowchart TD
     Select["2. Select Terms<br/>CURRENT"]
     Summary["3. Review Summary<br/>editable<br/>CURRENT"]
     Export["4. Export / Print<br/>client-side PDF / print<br/>CURRENT"]
-    Camera["Camera Capture<br/>PLANNED"]
+    Camera["Camera Capture<br/>CURRENT"]
 
     API["FastAPI App<br/>server/api.py<br/>CURRENT"]
     Detector["Term Detector<br/>logic/medical_term_detector.py<br/>CURRENT"]
@@ -56,7 +56,7 @@ flowchart TD
 
     AIRewriter["AI Rewriter<br/>PLANNED"]
     MultiLang["Multi-language Support<br/>PLANNED"]
-    HospitalSim["Hospital System Simulation<br/>PLANNED"]
+    HospitalSim["Hospital System Simulation<br/>CURRENT"]
 
     User --> Wizard
     Wizard --> Upload
