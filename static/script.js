@@ -121,14 +121,13 @@ function readTextFile(file) {
 }
 
 async function readImageAsText(file) {
-	const { data } = await Tesseract.recognize(file, "eng", {
-		logger: (m) => {
-			if (m.status === "recognizing text") {
-				el("upload-box-filename").textContent = `Reading photo… ${Math.round(m.progress * 100)}%`;
-			}
-		},
-	});
-	return data.text;
+	el("upload-box-filename").textContent = "Reading photo…";
+	const formData = new FormData();
+	formData.append("image", file);
+	const res = await fetch("/ocr", { method: "POST", body: formData });
+	if (!res.ok) throw new Error(`Server returned ${res.status}`);
+	const { text } = await res.json();
+	return text;
 }
 
 async function readPdfAsText(file) {

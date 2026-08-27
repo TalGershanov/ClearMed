@@ -7,6 +7,7 @@ from log_config import setup_logging
 setup_logging()
 
 from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations, get_term_details, init_trie
+from logic.ocr import extract_text_from_image
 from logic.translator import ClinicalTranslator
 from openmrs.client import OpenMRSAPIError, close_openmrs_client, get_openmrs_client
 from openmrs.config import OPENMRS_NOTE_CONCEPT_UUID, OPENMRS_ORIGIN
@@ -17,7 +18,7 @@ from openmrs.schemas import (
 	OpenMRSObservation,
 	OpenMRSPatient,
 )
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -61,6 +62,16 @@ openmrs_app.add_middleware(
 # the OpenMRS widget can call them cross-origin as /openmrs/analyse and
 # /openmrs/translate, inheriting openmrs_app's CORS scoping above) -- the
 # same handler function is just registered twice, no logic duplicated.
+@app.post("/ocr")
+async def ocr_image(image: UploadFile = File(...)):
+	logger.info("extracting text from uploaded image via Gemini")
+	image_bytes = await image.read()
+	try:
+		text = extract_text_from_image(image_bytes, image.content_type or "image/jpeg")
+	except Exception as e:
+		raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
+	return {"text": text}
+
 @app.post("/analyse")
 @openmrs_app.post("/analyse")
 async def analyse_text(request: AnalyseRequest):
