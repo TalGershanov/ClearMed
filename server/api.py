@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -6,6 +7,7 @@ from log_config import setup_logging
 
 setup_logging()
 
+from google.genai import errors as genai_errors
 from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations, get_term_details, init_trie
 from logic.ocr import extract_text_from_image
 from logic.translator import ClinicalTranslator
@@ -62,14 +64,27 @@ openmrs_app.add_middleware(
 # the OpenMRS widget can call them cross-origin as /openmrs/analyse and
 # /openmrs/translate, inheriting openmrs_app's CORS scoping above) -- the
 # same handler function is just registered twice, no logic duplicated.
+MAX_OCR_IMAGE_BYTES = 15 * 1024 * 1024  # stays under Gemini's inline-request ceiling once base64-encoded
+
 @app.post("/ocr")
 async def ocr_image(image: UploadFile = File(...)):
 	logger.info("extracting text from uploaded image via Gemini")
+	if not image.content_type or not image.content_type.startswith("image/"):
+		raise HTTPException(status_code=400, detail="Uploaded file must be an image.")
 	image_bytes = await image.read()
+	if len(image_bytes) > MAX_OCR_IMAGE_BYTES:
+		raise HTTPException(status_code=413, detail="Image is too large; please use a smaller photo.")
 	try:
-		text = extract_text_from_image(image_bytes, image.content_type or "image/jpeg")
-	except Exception as e:
-		raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
+		# generate_content is a blocking call -- run it off the event loop so a
+		# slow Gemini round-trip doesn't stall every other concurrent request.
+		text = await asyncio.to_thread(extract_text_from_image, image_bytes, image.content_type)
+	except RuntimeError as e:
+		raise HTTPException(status_code=503, detail=str(e))
+	except ValueError as e:
+		raise HTTPException(status_code=422, detail=str(e))
+	except genai_errors.APIError as e:
+		logger.error("Gemini OCR request failed: %s", e)
+		raise HTTPException(status_code=502, detail="OCR service is temporarily unavailable. Please try again.")
 	return {"text": text}
 
 @app.post("/analyse")

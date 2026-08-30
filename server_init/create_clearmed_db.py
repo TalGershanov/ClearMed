@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import sqlite3
@@ -15,13 +16,9 @@ logger = logging.getLogger("clearmed.server_init.create_clearmed_db")
 
 OPENAI_MODEL = "gpt-4o-mini"
 
-_openai_client = None
-
-def _get_openai_client():
-	global _openai_client
-	if _openai_client is None:
-		_openai_client = OpenAI()
-	return _openai_client
+@functools.cache
+def _get_openai_client() -> OpenAI:
+	return OpenAI()
 
 def _clean_candidate_sentences(full_explanation):
 	if not full_explanation:

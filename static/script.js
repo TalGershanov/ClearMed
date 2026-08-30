@@ -120,14 +120,32 @@ function readTextFile(file) {
 	});
 }
 
-async function readImageAsText(file) {
-	el("upload-box-filename").textContent = "Reading photo…";
-	const formData = new FormData();
-	formData.append("image", file);
-	const res = await fetch("/ocr", { method: "POST", body: formData });
-	if (!res.ok) throw new Error(`Server returned ${res.status}`);
-	const { text } = await res.json();
-	return text;
+function readImageAsText(file) {
+	return new Promise((resolve, reject) => {
+		const xhr = new XMLHttpRequest();
+		xhr.open("POST", "/ocr");
+		xhr.upload.addEventListener("progress", (e) => {
+			if (e.lengthComputable) {
+				el("upload-box-filename").textContent = `Reading photo… ${Math.round((e.loaded / e.total) * 100)}%`;
+			}
+		});
+		xhr.addEventListener("load", () => {
+			if (xhr.status < 200 || xhr.status >= 300) {
+				reject(new Error(`Server returned ${xhr.status}`));
+				return;
+			}
+			try {
+				resolve(JSON.parse(xhr.responseText).text);
+			} catch (err) {
+				reject(err);
+			}
+		});
+		xhr.addEventListener("error", () => reject(new Error("Network error")));
+		el("upload-box-filename").textContent = "Reading photo… 0%";
+		const formData = new FormData();
+		formData.append("image", file);
+		xhr.send(formData);
+	});
 }
 
 async function readPdfAsText(file) {
