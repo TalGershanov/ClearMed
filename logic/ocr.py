@@ -10,7 +10,7 @@ load_dotenv()
 
 logger = logging.getLogger("clearmed.ocr")
 
-GEMINI_MODEL = "gemini-flash-latest"
+GEMINI_MODEL = "gemini-3.6-flash"
 
 EXTRACTION_PROMPT = (
 	"You are an OCR engine. Extract all visible text inside this photographed "
