@@ -1,0 +1,22 @@
+{
+  "model": "yuvalbashan7-127d/clearmed-short-explanation-eval-exp2",
+  "n_examples": 12,
+  "n_valid_at_temp0": 11,
+  "n_matches_human": 4,
+  "n_with_a_previous_valid_prediction": 9,
+  "n_matches_previous_prediction": 5,
+  "by_group": {
+    "immediate_success_control": {
+      "n": 3,
+      "n_valid": 3
+    },
+    "recovered_on_retry": {
+      "n": 6,
+      "n_valid": 6
+    },
+    "unrecovered_format_failure": {
+      "n": 3,
+      "n_valid": 2
+    }
+  }
+}

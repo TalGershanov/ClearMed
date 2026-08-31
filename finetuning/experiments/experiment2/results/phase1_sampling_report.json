@@ -1,0 +1,30 @@
+{
+  "seed": 42,
+  "batch": "experiment2_distribution_correction",
+  "corpus_file": "/Users/yuvalbashan/clearmedupdate/output/clearmed_terms_english.json",
+  "corpus_total_terms": 1017,
+  "existing_annotations_excluded": 181,
+  "skipped_lt_2_candidates": 1,
+  "pool_sizes_available_by_bucket": {
+    "<=5": 53,
+    "6-10": 266,
+    "11-20": 332,
+    "21-40": 138,
+    ">40": 46
+  },
+  "targets_by_bucket": {
+    "<=5": 10,
+    "6-10": 18,
+    "11-20": 17
+  },
+  "shortfalls": {},
+  "sampled_count_by_bucket": {
+    "<=5": 10,
+    "6-10": 18,
+    "11-20": 17
+  },
+  "sampled_total": 45,
+  "overlap_with_test_jsonl": [],
+  "overlap_with_train_jsonl": [],
+  "overlap_with_any_existing_annotation": []
+}

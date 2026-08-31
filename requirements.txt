@@ -1,2 +1,3 @@
 openai==2.48.0
 python-dotenv==1.2.1
+together==2.9.0

@@ -1,0 +1,8 @@
+{
+  "fine_tuned_model": "yuvalbashan7_127d/Qwen3.5-9B-clearmed-short-explanation-59056392",
+  "job_id": "ft-e361f157-bbe8",
+  "base_model": "Qwen/Qwen3.5-9B",
+  "training_file_id": "file-89f96ddc-6411-4c4b-b504-94ca42cce87a",
+  "n_training_examples": 131,
+  "finished_at": "2026-08-26T15:53:32.220814+00:00"
+}

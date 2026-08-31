@@ -1,0 +1,15 @@
+{
+  "fine_tuned_model": "yuvalbashan7_127d/Qwen3.5-9B-clearmed-short-explanation-exp2-891811f3",
+  "job_id": "ft-c6700bb9-a164",
+  "base_model": "Qwen/Qwen3.5-9B",
+  "training_file_id": "file-f8da94d8-d87b-4616-851d-6b4de328895c",
+  "validation_file_id": "file-e95e275a-ed6d-4cb2-ba5d-8e67607cbd5d",
+  "n_train_examples": 316,
+  "n_val_examples": 36,
+  "n_epochs": 3,
+  "learning_rate": 1e-05,
+  "lora_r": 8,
+  "n_evals": 6,
+  "suffix": "clearmed-short-explanation-exp2",
+  "finished_at": "2026-08-30T09:55:07.978701+00:00"
+}

@@ -1,0 +1,122 @@
+[
+  {
+    "group": "unrecovered_format_failure",
+    "source_id": "3894",
+    "term": "Understanding Medical Research",
+    "candidate_count": 33,
+    "human_selected_index": 3,
+    "v7_selected_index": 3,
+    "previous_exp2_selected_index": null,
+    "previous_exp2_valid": false
+  },
+  {
+    "group": "unrecovered_format_failure",
+    "source_id": "4959",
+    "term": "Drugs and Young People",
+    "candidate_count": 40,
+    "human_selected_index": 8,
+    "v7_selected_index": 8,
+    "previous_exp2_selected_index": null,
+    "previous_exp2_valid": false
+  },
+  {
+    "group": "unrecovered_format_failure",
+    "source_id": "6785",
+    "term": "HDL: The \"Good\" Cholesterol",
+    "candidate_count": 44,
+    "human_selected_index": 7,
+    "v7_selected_index": 7,
+    "previous_exp2_selected_index": null,
+    "previous_exp2_valid": false
+  },
+  {
+    "group": "recovered_on_retry",
+    "source_id": "6467",
+    "term": "Reflux in Infants",
+    "candidate_count": 58,
+    "human_selected_index": 0,
+    "v7_selected_index": 0,
+    "previous_exp2_selected_index": 0,
+    "previous_exp2_valid": true
+  },
+  {
+    "group": "recovered_on_retry",
+    "source_id": "4117",
+    "term": "Personality Disorders",
+    "candidate_count": 51,
+    "human_selected_index": 4,
+    "v7_selected_index": 3,
+    "previous_exp2_selected_index": 2,
+    "previous_exp2_valid": true
+  },
+  {
+    "group": "recovered_on_retry",
+    "source_id": "424",
+    "term": "Suicide",
+    "candidate_count": 32,
+    "human_selected_index": 1,
+    "v7_selected_index": 1,
+    "previous_exp2_selected_index": 0,
+    "previous_exp2_valid": true
+  },
+  {
+    "group": "recovered_on_retry",
+    "source_id": "5914",
+    "term": "Stroke Rehabilitation",
+    "candidate_count": 47,
+    "human_selected_index": 4,
+    "v7_selected_index": 4,
+    "previous_exp2_selected_index": 4,
+    "previous_exp2_valid": true
+  },
+  {
+    "group": "recovered_on_retry",
+    "source_id": "294",
+    "term": "Vaccines",
+    "candidate_count": 46,
+    "human_selected_index": 0,
+    "v7_selected_index": 0,
+    "previous_exp2_selected_index": 0,
+    "previous_exp2_valid": true
+  },
+  {
+    "group": "recovered_on_retry",
+    "source_id": "601",
+    "term": "Panic Disorder",
+    "candidate_count": 32,
+    "human_selected_index": 1,
+    "v7_selected_index": 1,
+    "previous_exp2_selected_index": 24,
+    "previous_exp2_valid": true
+  },
+  {
+    "group": "immediate_success_control",
+    "source_id": "5624",
+    "term": "Chronic Myeloid Leukemia",
+    "candidate_count": 59,
+    "human_selected_index": 9,
+    "v7_selected_index": 7,
+    "previous_exp2_selected_index": 9,
+    "previous_exp2_valid": true
+  },
+  {
+    "group": "immediate_success_control",
+    "source_id": "6807",
+    "term": "How to Lower Cholesterol with Diet",
+    "candidate_count": 56,
+    "human_selected_index": 12,
+    "v7_selected_index": 14,
+    "previous_exp2_selected_index": 12,
+    "previous_exp2_valid": true
+  },
+  {
+    "group": "immediate_success_control",
+    "source_id": "6452",
+    "term": "Heart Health Tests",
+    "candidate_count": 63,
+    "human_selected_index": 3,
+    "v7_selected_index": 3,
+    "previous_exp2_selected_index": 3,
+    "previous_exp2_valid": true
+  }
+]

@@ -6,10 +6,11 @@ import os
 import random
 import sys
 
-_ANNOTATION_DIR = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = os.path.dirname(_ANNOTATION_DIR)
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(_THIS_DIR)))
 _SERVER_INIT_DIR = os.path.join(_REPO_ROOT, "server_init")
-for _path in (_REPO_ROOT, _SERVER_INIT_DIR):
+_SHARED_DIR = os.path.join(_REPO_ROOT, "finetuning", "shared")
+for _path in (_REPO_ROOT, _SERVER_INIT_DIR, _SHARED_DIR):
 	if _path not in sys.path:
 		sys.path.insert(0, _path)
 
@@ -18,7 +19,7 @@ from config import JSON_FILE  # noqa: E402
 
 from dataset_io import load_jsonl, write_jsonl_atomic, load_json, write_json_atomic  # noqa: E402
 
-DATA_DIR = os.path.join(_ANNOTATION_DIR, "data")
+DATA_DIR = os.path.join(_REPO_ROOT, "finetuning", "data")
 ANNOTATIONS_FILE = os.path.join(DATA_DIR, "annotations.jsonl")
 V7_CACHE_FILE = os.path.join(DATA_DIR, "v7_cache.json")
 

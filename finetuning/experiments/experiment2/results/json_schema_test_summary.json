@@ -1,0 +1,18 @@
+{
+  "model": "yuvalbashan7-127d/clearmed-short-explanation-eval-exp2",
+  "response_format": "json_schema (strict, selected_index required, additionalProperties=false, dynamic min/max)",
+  "temperature": "unset (server default, same as original Experiment 2 evaluation)",
+  "n_examples": 11,
+  "n_valid": 11,
+  "n_matches_human": 3,
+  "by_group": {
+    "intermittent_format_failure": {
+      "n": 8,
+      "n_valid": 8
+    },
+    "persistent_format_failure": {
+      "n": 3,
+      "n_valid": 3
+    }
+  }
+}

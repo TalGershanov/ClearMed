@@ -1,0 +1,200 @@
+{
+  "seed": 42,
+  "inputs": {
+    "experiment1_train_file": "/Users/yuvalbashan/clearmedupdate/annotation/data/splits/train.jsonl",
+    "experiment1_train_count": 131,
+    "batch2_file": "/Users/yuvalbashan/clearmedupdate/annotation/data/experiment2/annotations_batch2.jsonl",
+    "batch2_count": 45
+  },
+  "unique_training_pool_size": 176,
+  "shuffled_twin_count": 176,
+  "combined_augmented_count": 352,
+  "outputs": {
+    "natural_file": "/Users/yuvalbashan/clearmedupdate/annotation/data/experiment2/training_pool_natural.jsonl",
+    "shuffled_file": "/Users/yuvalbashan/clearmedupdate/annotation/data/experiment2/training_pool_shuffled.jsonl",
+    "augmented_file": "/Users/yuvalbashan/clearmedupdate/annotation/data/experiment2/train_augmented.jsonl"
+  },
+  "audits": {
+    "natural": {
+      "group": "natural",
+      "n_rows": 176,
+      "index0_count": 95,
+      "index0_rate": 0.5397727272727273,
+      "selected_index_distribution_top10": [
+        [
+          0,
+          95
+        ],
+        [
+          2,
+          18
+        ],
+        [
+          1,
+          17
+        ],
+        [
+          3,
+          8
+        ],
+        [
+          4,
+          7
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          8,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          11,
+          3
+        ],
+        [
+          10,
+          2
+        ]
+      ],
+      "distinct_indices_used": 18,
+      "candidate_count_bucket_distribution": {
+        ">40": 103,
+        "6-10": 18,
+        "<=5": 10,
+        "11-20": 20,
+        "21-40": 25
+      }
+    },
+    "shuffled": {
+      "group": "shuffled",
+      "n_rows": 176,
+      "index0_count": 9,
+      "index0_rate": 0.05113636363636364,
+      "selected_index_distribution_top10": [
+        [
+          6,
+          10
+        ],
+        [
+          16,
+          10
+        ],
+        [
+          0,
+          9
+        ],
+        [
+          3,
+          9
+        ],
+        [
+          8,
+          8
+        ],
+        [
+          18,
+          8
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          1,
+          7
+        ],
+        [
+          5,
+          7
+        ],
+        [
+          9,
+          7
+        ]
+      ],
+      "distinct_indices_used": 56,
+      "candidate_count_bucket_distribution": {
+        ">40": 103,
+        "6-10": 18,
+        "<=5": 10,
+        "11-20": 20,
+        "21-40": 25
+      }
+    },
+    "combined": {
+      "group": "combined",
+      "n_rows": 352,
+      "index0_count": 104,
+      "index0_rate": 0.29545454545454547,
+      "selected_index_distribution_top10": [
+        [
+          0,
+          104
+        ],
+        [
+          2,
+          26
+        ],
+        [
+          1,
+          24
+        ],
+        [
+          3,
+          17
+        ],
+        [
+          6,
+          16
+        ],
+        [
+          8,
+          13
+        ],
+        [
+          5,
+          12
+        ],
+        [
+          4,
+          11
+        ],
+        [
+          16,
+          11
+        ],
+        [
+          18,
+          9
+        ]
+      ],
+      "distinct_indices_used": 57,
+      "candidate_count_bucket_distribution": {
+        ">40": 206,
+        "6-10": 36,
+        "<=5": 20,
+        "11-20": 40,
+        "21-40": 50
+      }
+    }
+  },
+  "expected_uniform_shuffled_index0_rate": 0.04865180314567168,
+  "observed_shuffled_index0_rate": 0.05113636363636364,
+  "unexpected_index0_bias_flag": false,
+  "integrity_checks": {
+    "pairing_problems": [],
+    "test_set_leakage_source_ids": [],
+    "stray_duplicate_source_ids": {}
+  },
+  "dev_split_proposal_only_not_created": {
+    "proposed_unique_examples": 18,
+    "proposed_dev_rows_natural_plus_shuffled": 36,
+    "note": "Not written to disk. Awaiting approval before creating dev/train split files."
+  }
+}
