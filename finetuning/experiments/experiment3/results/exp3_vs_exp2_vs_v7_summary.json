@@ -1,0 +1,31 @@
+{
+  "n_examples": 50,
+  "v7_accuracy_strict": 0.7,
+  "experiment2_accuracy_strict": 0.5,
+  "experiment3_accuracy_strict": 0.42,
+  "experiment3_minus_experiment2_percentage_points": -8.0,
+  "experiment3_minus_v7_percentage_points": -28.000000000000004,
+  "exp3_vs_exp2_status_counts": {
+    "same": 42,
+    "regressed": 6,
+    "improved": 2
+  },
+  "exp3_improvements_over_exp2": {
+    "count": 2,
+    "terms": [
+      "Opioid Use Disorder (OUD) Treatment",
+      "Inhalants"
+    ]
+  },
+  "exp3_regressions_vs_exp2": {
+    "count": 6,
+    "terms": [
+      "Chronic Myeloid Leukemia",
+      "Heart Health Tests",
+      "Eosinophilic Esophagitis",
+      "Heart Surgery",
+      "Radiation Exposure",
+      "HIV: PrEP and PEP"
+    ]
+  }
+}

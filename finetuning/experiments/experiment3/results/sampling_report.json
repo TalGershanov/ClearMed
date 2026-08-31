@@ -1,0 +1,40 @@
+{
+  "seed": 42,
+  "corpus_total_terms": 1017,
+  "excluded_already_used": 226,
+  "skipped_lt_2_candidates": 1,
+  "unused_pool_size": 790,
+  "unused_pool_domain_distribution": {
+    "other_medical": 360,
+    "disease_condition": 303,
+    "general_informational": 127
+  },
+  "unused_pool_bucket_distribution": {
+    "related_fact_vs_explanation": 198,
+    "unclassified": 482,
+    "compound_multi_part": 62,
+    "generic_vs_functional": 25,
+    "other_hard_case": 9,
+    "rare_failure_mode": 14
+  },
+  "initial_pool_size": 90,
+  "final_selection_size": 50,
+  "final_selection_domain_distribution": {
+    "disease_condition": 45,
+    "other_medical": 5
+  },
+  "final_selection_bucket_distribution": {
+    "generic_vs_functional": 20,
+    "related_fact_vs_explanation": 15,
+    "compound_multi_part": 7,
+    "other_hard_case": 4,
+    "rare_failure_mode": 4
+  },
+  "bucket_targets": {
+    "generic_vs_functional": 20,
+    "related_fact_vs_explanation": 15,
+    "compound_multi_part": 7,
+    "other_hard_case": 4,
+    "rare_failure_mode": 4
+  }
+}
