@@ -9,6 +9,7 @@ from openai import OpenAI
 
 import bootstrap
 from config import JSON_FILE, DB_FILE
+from DAL.db import SQLiteDatabase
 
 load_dotenv()
 
@@ -292,6 +293,39 @@ def create_database():
 	connection.close()
 	print(f"Database created: {DB_FILE}")
 	print(f"Inserted terms: {len(terms)}")
+
+	# Smoke check: verify the DAL read path agrees with what this script just
+	# wrote. Catches write/read schema drift (e.g. a reordered SELECT or
+	# CREATE TABLE) immediately at seed time instead of silently corrupting
+	# data in production.
+	first_term = terms[0]
+	dal = SQLiteDatabase()
+	fetched = dal.get_term_by_name(first_term["term"])
+	if fetched is None:
+		raise AssertionError(
+			f"Smoke check failed: DAL could not find seeded term {first_term['term']!r}"
+		)
+	if fetched["term"] != first_term["term"]:
+		raise AssertionError(
+			f"Smoke check failed: term mismatch ({fetched['term']!r} != {first_term['term']!r})"
+		)
+	if fetched["simple_explanation"] != first_term.get("simple_explanation"):
+		raise AssertionError(
+			"Smoke check failed: simple_explanation mismatch -- check DAL/db.py column mapping"
+		)
+	if fetched["short_explanation"] is not None and not isinstance(fetched["short_explanation"], str):
+		raise AssertionError(
+			"Smoke check failed: short_explanation has unexpected type -- check DAL/db.py column mapping"
+		)
+	if fetched["synonyms"] != first_term.get("synonyms", []):
+		raise AssertionError(
+			"Smoke check failed: synonyms mismatch -- check DAL/db.py column mapping"
+		)
+	if fetched["categories"] != first_term.get("categories", []):
+		raise AssertionError(
+			"Smoke check failed: categories mismatch -- check DAL/db.py column mapping"
+		)
+	print(f"Smoke check passed: DAL read back term {first_term['term']!r} correctly")
 
 if __name__ == "__main__":
 	from log_config import setup_logging

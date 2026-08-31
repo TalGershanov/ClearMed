@@ -10,6 +10,11 @@ logger = logging.getLogger("clearmed.dal.db")
 
 
 class SQLiteDatabase(DatabaseInterface):
+	# Single source of truth for the dict shape DatabaseInterface guarantees.
+	# Adding a column (e.g. a future `lang` field) is a one-line change here.
+	_TERM_FIELDS = ("term", "short_explanation", "simple_explanation", "synonyms", "categories")
+	_JSON_FIELDS = {"synonyms", "categories"}
+
 	def _get_connection(self):
 		if not os.path.exists(DB_FILE):
 			logger.error(f"{DB_FILE} not found")
@@ -19,6 +24,7 @@ class SQLiteDatabase(DatabaseInterface):
 			)
 		try:
 			connection = sqlite3.connect(DB_FILE)
+			connection.row_factory = sqlite3.Row
 			logger.debug(f"Opened connection to {DB_FILE}")
 			return connection
 		except sqlite3.Error:
@@ -26,13 +32,21 @@ class SQLiteDatabase(DatabaseInterface):
 			raise
 
 	def _row_to_dict(self, row):
-		return {
-			"term": row[0],
-			"short_explanation": row[1],
-			"simple_explanation": row[2],
-			"synonyms": json.loads(row[3]) if row[3] is not None else [],
-			"categories": json.loads(row[4]) if row[4] is not None else [],
-		}
+		"""Map a fetched row to a dict by column name (via sqlite3.Row),
+		not position, so a reordered SELECT or CREATE TABLE can't silently
+		swap field values."""
+		raw = dict(row)
+		result = {}
+		for field in self._TERM_FIELDS:
+			if field not in raw:
+				result[field] = [] if field in self._JSON_FIELDS else None
+				continue
+			value = raw[field]
+			if field in self._JSON_FIELDS:
+				result[field] = json.loads(value) if value is not None else []
+			else:
+				result[field] = value
+		return result
 
 	def get_term_by_name(self, term: str) -> dict | None:
 		connection = self._get_connection()
@@ -44,12 +58,12 @@ class SQLiteDatabase(DatabaseInterface):
 				WHERE LOWER(term) = LOWER(?)
 			""", (term,))
 			row = cursor.fetchone()
+			result = self._row_to_dict(row) if row is not None else None
 		finally:
 			connection.close()
-		if row is None:
+		if result is None:
 			logger.debug(f"No DB entry found for term '{term}'")
-			return None
-		return self._row_to_dict(row)
+		return result
 
 	def get_all_terms(self) -> list[dict]:
 		connection = self._get_connection()
@@ -60,15 +74,7 @@ class SQLiteDatabase(DatabaseInterface):
 				FROM medical_terms
 			""")
 			rows = cursor.fetchall()
+			results = [self._row_to_dict(row) for row in rows]
 		finally:
 			connection.close()
-		return [
-			{
-				"term": row[0],
-				"short_explanation": None,
-				"simple_explanation": None,
-				"synonyms": json.loads(row[1]) if row[1] is not None else [],
-				"categories": [],
-			}
-			for row in rows
-		]
+		return results
