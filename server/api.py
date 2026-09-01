@@ -6,7 +6,7 @@ from log_config import setup_logging
 setup_logging()
 
 from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations, get_term_details, init_trie
-from logic.translator import ClinicalTranslator
+from logic.translator import ClinicalTranslator, simplify_text_with_openai
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -42,8 +42,13 @@ async def translate_text(request: TranslateRequest):
 	logger.info("translating text based on ui selection")
 	translator = ClinicalTranslator("short_explanation", get_term_details)
 	approved_terms = translator.get_approved_terms(request.ui_selection)
-	terms_with_data = translator.fetch_explanations(approved_terms)
-	final_text = translator.replace_terms(request.text, terms_with_data)
+	detected_terms = detect_terms_with_explanations(request.text)
+	explanation_map = {
+		term["main_term"]: term[translator.summary_string]
+		for term in detected_terms
+		if term["main_term"] in approved_terms and term.get(translator.summary_string)
+	}
+	final_text = simplify_text_with_openai(request.text, explanation_map)
 	return {"translated_text": final_text, "explained_terms_list": approved_terms}
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")

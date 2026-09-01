@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 
 class DatabaseInterface(ABC):
@@ -7,7 +8,7 @@ class DatabaseInterface(ABC):
 	logic layer knowing which one is in use."""
 
 	@abstractmethod
-	def get_term_by_name(self, term: str) -> dict | None:
+	def get_term_by_name(self, term: str) -> Optional[dict]:
 		"""Look up a single term by name (case-insensitive).
 
 		Returns a dict shaped like:

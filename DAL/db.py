@@ -2,6 +2,7 @@ import os
 import sqlite3
 import json
 import logging
+from typing import Optional
 
 from config import DB_FILE
 from DAL.interface import DatabaseInterface
@@ -34,7 +35,7 @@ class SQLiteDatabase(DatabaseInterface):
 			"categories": json.loads(row[4]) if row[4] is not None else [],
 		}
 
-	def get_term_by_name(self, term: str) -> dict | None:
+	def get_term_by_name(self, term: str) -> Optional[dict]:
 		connection = self._get_connection()
 		try:
 			cursor = connection.cursor()
