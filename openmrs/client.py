@@ -83,6 +83,7 @@ def get_openmrs_client() -> OpenMRSClient:
 	if _client is None:
 		if not is_configured():
 			raise RuntimeError("OpenMRS is not configured (missing OPENMRS_BASE_URL/USERNAME/PASSWORD)")
+		assert OPENMRS_BASE_URL and OPENMRS_USERNAME and OPENMRS_PASSWORD
 		_client = OpenMRSClient(OPENMRS_BASE_URL, OPENMRS_USERNAME, OPENMRS_PASSWORD, OPENMRS_TIMEOUT_SECONDS)
 	return _client
 

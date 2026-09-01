@@ -7,7 +7,7 @@ import re
 from dotenv import load_dotenv
 from openai import OpenAI
 
-import bootstrap
+
 from config import JSON_FILE, DB_FILE
 from DAL.db import SQLiteDatabase
 
@@ -20,6 +20,8 @@ OPENAI_MODEL = "gpt-4o-mini"
 @functools.cache
 def _get_openai_client() -> OpenAI:
 	return OpenAI()
+
+_QUESTION_PREFIXES = ("what is ", "what are ", "what causes ", "who is ", "who are ", "how is ", "how are ")
 
 def _clean_candidate_sentences(full_explanation):
 	if not full_explanation:
@@ -35,19 +37,7 @@ def _clean_candidate_sentences(full_explanation):
 	for sentence in sentences:
 		lower_sentence = sentence.lower().strip()
 		# skip question sentences that don't explain anything
-		if lower_sentence.startswith("what is "):
-			continue
-		if lower_sentence.startswith("what are "):
-			continue
-		if lower_sentence.startswith("what causes "):
-			continue
-		if lower_sentence.startswith("who is "):
-			continue
-		if lower_sentence.startswith("who are "):
-			continue
-		if lower_sentence.startswith("how is "):
-			continue
-		if lower_sentence.startswith("how are "):
+		if lower_sentence.startswith(_QUESTION_PREFIXES):
 			continue
 		cleaned_sentences.append(sentence)
 	# if filtering removed everything, revert to the original sentences
@@ -248,6 +238,36 @@ def create_tables(cursor):
 		)
 	""")
 
+def create_concept_tables(cursor):
+	cursor.execute("""
+		CREATE TABLE IF NOT EXISTS concepts (
+			concept_id TEXT PRIMARY KEY,
+			categories TEXT
+		)
+	""")
+	cursor.execute("""
+		CREATE TABLE IF NOT EXISTS explanations (
+			explanation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+			concept_id TEXT NOT NULL REFERENCES concepts (concept_id),
+			language_code TEXT NOT NULL,
+			term_name TEXT NOT NULL,
+			simple_explanation TEXT,
+			short_explanation TEXT,
+			UNIQUE (concept_id, language_code)
+		)
+	""")
+	cursor.execute("""
+		CREATE TABLE IF NOT EXISTS term_aliases (
+			alias_text TEXT PRIMARY KEY,
+			concept_id TEXT NOT NULL REFERENCES concepts (concept_id),
+			language_code TEXT
+		)
+	""")
+	cursor.execute("""
+		CREATE INDEX IF NOT EXISTS idx_term_aliases_concept_id
+		ON term_aliases (concept_id)
+	""")
+
 def insert_terms(cursor, terms):
 	total = len(terms)
 	for index, item in enumerate(terms, start=1):
@@ -289,6 +309,12 @@ def create_database():
 	create_tables(cursor)
 	cursor.execute("DELETE FROM medical_terms")
 	insert_terms(cursor, terms)
+
+	cursor.execute("DROP TABLE IF EXISTS term_aliases")
+	cursor.execute("DROP TABLE IF EXISTS explanations")
+	cursor.execute("DROP TABLE IF EXISTS concepts")
+	create_concept_tables(cursor)
+
 	connection.commit()
 	connection.close()
 	print(f"Database created: {DB_FILE}")
@@ -305,26 +331,20 @@ def create_database():
 		raise AssertionError(
 			f"Smoke check failed: DAL could not find seeded term {first_term['term']!r}"
 		)
-	if fetched["term"] != first_term["term"]:
-		raise AssertionError(
-			f"Smoke check failed: term mismatch ({fetched['term']!r} != {first_term['term']!r})"
-		)
-	if fetched["simple_explanation"] != first_term.get("simple_explanation"):
-		raise AssertionError(
-			"Smoke check failed: simple_explanation mismatch -- check DAL/db.py column mapping"
-		)
 	if fetched["short_explanation"] is not None and not isinstance(fetched["short_explanation"], str):
 		raise AssertionError(
 			"Smoke check failed: short_explanation has unexpected type -- check DAL/db.py column mapping"
 		)
-	if fetched["synonyms"] != first_term.get("synonyms", []):
-		raise AssertionError(
-			"Smoke check failed: synonyms mismatch -- check DAL/db.py column mapping"
-		)
-	if fetched["categories"] != first_term.get("categories", []):
-		raise AssertionError(
-			"Smoke check failed: categories mismatch -- check DAL/db.py column mapping"
-		)
+	for field, expected in (
+		("term", first_term["term"]),
+		("simple_explanation", first_term.get("simple_explanation")),
+		("synonyms", first_term.get("synonyms", [])),
+		("categories", first_term.get("categories", [])),
+	):
+		if fetched[field] != expected:
+			raise AssertionError(
+				f"Smoke check failed: {field} mismatch ({fetched[field]!r} != {expected!r})"
+			)
 	print(f"Smoke check passed: DAL read back term {first_term['term']!r} correctly")
 
 if __name__ == "__main__":

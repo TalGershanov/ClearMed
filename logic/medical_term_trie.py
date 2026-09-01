@@ -59,7 +59,6 @@ class MedicalTermTrie:
 			# go down a level in the tree
 			current = current.children[word]
 		# mark this as the end of a term
-		self.is_end = True
 		current.is_end = True
 		# store the main medical term
 		current.main_term = main_term
