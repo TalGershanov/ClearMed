@@ -40,6 +40,7 @@ app = FastAPI(title="ClearMed API", lifespan=lifespan)
 
 class AnalyseRequest(BaseModel):
 	text: str
+	language_code: str = "en"
 
 class TranslateRequest(BaseModel):
 	text: str
@@ -90,8 +91,11 @@ async def ocr_image(image: UploadFile = File(...)):
 @app.post("/analyse")
 @openmrs_app.post("/analyse")
 async def analyse_text(request: AnalyseRequest):
-	logger.info("analysing text for medical terms")
-	result = detect_terms_with_explanations(request.text)
+	logger.info("analysing text for medical terms (language_code=%s)", request.language_code)
+	try:
+		result = detect_terms_with_explanations(request.text, request.language_code)
+	except ValueError as e:
+		raise HTTPException(status_code=400, detail=str(e))
 	ui_selection = build_ui_selection(result)
 	return {"detected_terms": result, "ui_selection": ui_selection}
 

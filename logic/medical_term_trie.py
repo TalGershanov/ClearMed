@@ -40,12 +40,10 @@ class MedicalTermTrie:
 		# root is the start of the whole tree
 		self.root = TrieNode()
 
-	def insert(self, phrase, main_term):
-		# inserts a phrase into the tree
-		# phrase: 'type 2 diabetes'
+	def insert_words(self, words, main_term):
+		# inserts an already-tokenized/normalized phrase into the tree
+		# words: ['type', '2', 'diabetes']
 		# main_term: 'Type 2 Diabetes'
-		# split into words
-		words = tokenize(phrase)
 		# if phrase is empty
 		if not words:
 			return
@@ -63,9 +61,11 @@ class MedicalTermTrie:
 		# store the main medical term
 		current.main_term = main_term
 
-	def find_terms(self, text):
-		# receives free text and returns which medical terms were found
-		words = tokenize(text)
+	def find_word_matches(self, words):
+		# receives an already-tokenized/normalized word list and returns
+		# which medical terms were found, as word-index ranges. Callers
+		# (language-specific detectors) map these back to character offsets
+		# in their own raw text.
 		found_terms = []
 		# i = where we start searching in the text
 		i = 0
@@ -84,9 +84,7 @@ class MedicalTermTrie:
 				current = current.children[words[j]]
 				# if we reached the end of a valid term, save it
 				if current.is_end:
-					matched_text = " ".join(words[i:j + 1])
 					longest_match = {
-						"matched_text": matched_text,
 						# the main term in the database
 						"main_term": current.main_term,
 						# where it started in the text
@@ -121,9 +119,9 @@ def build_trie_from_db():
 		term = row["term"]
 		synonyms = row["synonyms"]
 		# insert the main term
-		trie.insert(term, term)
+		trie.insert_words(tokenize(term), term)
 		# also insert synonyms
 		for synonym in synonyms:
-			trie.insert(synonym, term)
+			trie.insert_words(tokenize(synonym), term)
 	logger.info(f"Built trie from {len(rows)} term(s) in the database")
 	return trie
