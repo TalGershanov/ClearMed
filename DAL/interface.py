@@ -15,11 +15,16 @@ class DatabaseInterface(ABC):
 			{
 				"term": str,
 				"short_explanation": str | None,
+				"short_explanation_he": str | None,
 				"simple_explanation": str | None,
 				"synonyms": list[str],
 				"categories": list[str],
 			}
 		or None if not found. synonyms/categories are already JSON-decoded.
+		short_explanation_he is the Hebrew translation of short_explanation,
+		produced by a separate translation stage during DB creation (see
+		server_init/create_clearmed_db.py::translate_short_explanation_to_hebrew);
+		it is None wherever no successful translation exists yet.
 		"""
 		...
 

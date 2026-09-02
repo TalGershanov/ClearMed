@@ -30,9 +30,10 @@ class SQLiteDatabase(DatabaseInterface):
 		return {
 			"term": row[0],
 			"short_explanation": row[1],
-			"simple_explanation": row[2],
-			"synonyms": json.loads(row[3]) if row[3] is not None else [],
-			"categories": json.loads(row[4]) if row[4] is not None else [],
+			"short_explanation_he": row[2],
+			"simple_explanation": row[3],
+			"synonyms": json.loads(row[4]) if row[4] is not None else [],
+			"categories": json.loads(row[5]) if row[5] is not None else [],
 		}
 
 	def get_term_by_name(self, term: str) -> Optional[dict]:
@@ -40,7 +41,7 @@ class SQLiteDatabase(DatabaseInterface):
 		try:
 			cursor = connection.cursor()
 			cursor.execute("""
-				SELECT term, short_explanation, simple_explanation, synonyms, categories
+				SELECT term, short_explanation, short_explanation_he, simple_explanation, synonyms, categories
 				FROM medical_terms
 				WHERE LOWER(term) = LOWER(?)
 			""", (term,))
@@ -67,6 +68,7 @@ class SQLiteDatabase(DatabaseInterface):
 			{
 				"term": row[0],
 				"short_explanation": None,
+				"short_explanation_he": None,
 				"simple_explanation": None,
 				"synonyms": json.loads(row[1]) if row[1] is not None else [],
 				"categories": [],
