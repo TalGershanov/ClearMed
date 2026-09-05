@@ -9,7 +9,7 @@ from log_config import setup_logging
 from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations, init_trie
 from logic.ocr import extract_text_from_image
 from logic.term_detectors.hebrew import detect_language_code
-from logic.translator import build_explanation_map, simplify_text_with_openai
+from logic.translator import build_explanation_map, simplify_text_with_claude
 from openmrs.client import OpenMRSAPIError, close_openmrs_client, get_openmrs_client
 from openmrs.config import OPENMRS_NOTE_CONCEPT_UUID, OPENMRS_ORIGIN
 from openmrs.schemas import (
@@ -116,7 +116,10 @@ async def translate_text(request: TranslateRequest):
 	except ValueError as e:
 		raise HTTPException(status_code=400, detail=str(e))
 	explanation_map, explained_terms_list = build_explanation_map(detected_terms, request.ui_selection, explanation_field)
-	final_text = simplify_text_with_openai(request.text, explanation_map)
+	# Blocking network call to Claude -- run it off the event loop, same as the
+	# Gemini OCR call above, so a slow round-trip doesn't stall every other
+	# concurrent request.
+	final_text = await asyncio.to_thread(simplify_text_with_claude, request.text, explanation_map)
 	return {"translated_text": final_text, "explained_terms_list": explained_terms_list}
 
 async def _call_openmrs(action):
