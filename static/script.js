@@ -195,7 +195,7 @@ function renderTermsTable() {
 
 	state.detectedTerms.forEach((term) => {
 		const checked = state.uiSelection[term.main_term] !== false;
-		const explanation = state.languageCode === "he" ? term.simple_explanation : term.short_explanation;
+		const explanation = term.short_explanation;
 		const tr = document.createElement("tr");
 		tr.innerHTML = `
 			<td class="col-check"><input type="checkbox" data-term="${escapeHtml(term.main_term)}" ${checked ? "checked" : ""}></td>
