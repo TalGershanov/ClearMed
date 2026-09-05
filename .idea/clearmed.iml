@@ -5,6 +5,14 @@
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.9 (clearmedupdate)" jdkType="Python SDK" />
+      <excludeFolder url="file://$MODULE_DIR$/.claude/worktrees" />
+      <excludeFolder url="file://$MODULE_DIR$/openmrs-frontend/esm-clearmed-widget/node_modules" />
+      <excludeFolder url="file://$MODULE_DIR$/openmrs-frontend/esm-clearmed-widget/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/__pycache__" />
+      <excludeFolder url="file://$MODULE_DIR$/logs" />
+      <excludeFolder url="file://$MODULE_DIR$/output" />
+    </content>
+    <orderEntry type="jdk" jdkName="Python 3.12 virtualenv at ~/school/clearmed/.venv" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>

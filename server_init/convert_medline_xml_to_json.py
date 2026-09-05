@@ -4,6 +4,7 @@ import re
 from html import unescape
 
 import bootstrap
+_ = bootstrap  # side-effect import: puts the repo root on sys.path (see server_init/bootstrap.py)
 from config import JSON_FILE, XML_FILE
 
 def clean_html(raw_html):

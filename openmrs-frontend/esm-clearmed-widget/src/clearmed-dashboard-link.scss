@@ -1,0 +1,24 @@
+// No custom color/font-weight here on purpose -- this link should look
+// identical to every other built-in dashboard tab (same `cds--side-nav__link`
+// styling, same `active-left-nav-link` highlight only when selected). Only
+// the logo image is custom; `createDashboard`'s `icon` prop can't render an
+// arbitrary image, which is the whole reason this component exists instead
+// of using `createDashboard` directly.
+
+// Icon size (16px) and icon-to-text gap (24px, Carbon's $spacing-06) match
+// @openmrs/esm-styleguide's DashboardExtension exactly (dashboard.module.scss:
+// `.icon { margin-right: layout.$spacing-06 }` on a `size={16}` MaybeIcon) --
+// otherwise this tab's text sits at a different horizontal position than
+// every built-in tab's.
+.menu {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.logo {
+  height: 16px;
+  width: 16px;
+  object-fit: contain;
+  display: block;
+}

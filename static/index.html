@@ -32,6 +32,18 @@
 			</label>
 			<input type="file" id="file-input" accept=".txt,.pdf" hidden>
 
+			<div class="upload-camera-row">
+				<span class="upload-camera-divider">or</span>
+				<label for="camera-input" class="btn btn-ghost">Take a Photo</label>
+			</div>
+			<input type="file" id="camera-input" accept="image/*" capture="environment" hidden>
+
+			<div class="photo-review hidden" id="photo-review">
+				<h2 class="card-title">Review Extracted Text</h2>
+				<p class="card-subtitle">A photo can pick up extra content like letterhead or unrelated sections. Edit or trim the text below to keep just what's relevant before continuing.</p>
+				<textarea class="photo-review-box" id="photo-review-box"></textarea>
+			</div>
+
 			<div class="actions actions-end">
 				<button class="btn btn-primary" id="btn-identify" disabled>Identify Medical Terms →</button>
 			</div>
@@ -68,12 +80,12 @@
 					<h2 class="card-title">Patient-Friendly Explanation</h2>
 					<button class="link-btn" id="btn-edit-manually">✎ Edit manually</button>
 				</div>
-				<div class="explanation-box" id="explanation-box" contenteditable="false"></div>
+				<div class="explanation-box" id="explanation-box" contenteditable="false" dir="auto"></div>
 			</div>
 
 			<div class="card">
 				<h2 class="card-title">Original Medical Document</h2>
-				<pre class="original-box" id="original-box"></pre>
+				<pre class="original-box" id="original-box" dir="auto"></pre>
 			</div>
 
 			<div class="card">
@@ -99,10 +111,10 @@
 					<span class="doc-date" id="doc-date"></span>
 				</div>
 				<h3 class="doc-title">Patient-Friendly Summary</h3>
-				<div class="doc-explanation" id="doc-explanation"></div>
+				<div class="doc-explanation" id="doc-explanation" dir="auto"></div>
 				<div class="doc-original">
 					<h4>Original Document</h4>
-					<pre id="doc-original-text"></pre>
+					<pre id="doc-original-text" dir="auto"></pre>
 				</div>
 				<div class="doc-terms">
 					<h4>Selected Terms</h4>
@@ -113,11 +125,6 @@
 
 			<p class="next-label">What would you like to do next?</p>
 			<div class="export-cards">
-				<button class="export-card" id="btn-export-pdf">
-					<span class="export-icon">⬇</span>
-					<span class="export-title">Export PDF</span>
-					<span class="export-desc">Download the patient-friendly summary as a PDF.</span>
-				</button>
 				<button class="export-card" id="btn-print">
 					<span class="export-icon">🖶</span>
 					<span class="export-title">Print</span>
@@ -144,8 +151,6 @@
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

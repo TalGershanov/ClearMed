@@ -1,0 +1,395 @@
+// Local subset of ClearMed's site palette (static/style.css), since this
+// package builds independently and can't import that stylesheet directly.
+:root {
+  --clearmed-text: #1e293b;
+  --clearmed-text-muted: #64748b;
+  --clearmed-border: #e2e8f0;
+  --clearmed-card-bg: #ffffff;
+  --clearmed-accent: #6366f1;
+  --clearmed-accent-strong: #4f46e5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --clearmed-text: #e2e8f0;
+    --clearmed-text-muted: #94a3b8;
+    --clearmed-border: #334155;
+    --clearmed-card-bg: #181b20;
+    --clearmed-accent: #818cf8;
+    --clearmed-accent-strong: #a5b4fc;
+  }
+}
+
+.widget {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif;
+  color: var(--clearmed-text);
+  padding: 16px 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.headerLogo {
+  height: 28px;
+  width: auto;
+  border-radius: 6px;
+}
+
+.headerTitle {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--clearmed-text);
+}
+
+.card {
+  background: var(--clearmed-card-bg);
+  border: 1px solid var(--clearmed-border);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.cardTitle {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--clearmed-text);
+}
+
+.cardAccent {
+  width: 40px;
+  height: 3px;
+  background: var(--clearmed-accent);
+  border-radius: 2px;
+  margin-bottom: 16px;
+}
+
+.cardHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.linkBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--clearmed-accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.linkBtn:hover {
+  color: var(--clearmed-accent-strong);
+}
+
+.textarea {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid var(--clearmed-border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--clearmed-text);
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--clearmed-accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.btnPrimary {
+  background: var(--clearmed-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnPrimary:hover {
+  background: var(--clearmed-accent-strong);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnGhost {
+  background: transparent;
+  color: var(--clearmed-text);
+  border: 1px solid var(--clearmed-border);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnGhost:hover {
+  border-color: var(--clearmed-accent);
+  color: var(--clearmed-accent-strong);
+}
+
+.error {
+  color: #b91c1c;
+  font-size: 0.9rem;
+  margin: 8px 0;
+}
+
+.muted {
+  color: var(--clearmed-text-muted);
+  font-size: 0.9rem;
+}
+
+.termList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.termLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+}
+
+// Read-only checkmark list of already-approved terms -- used on the
+// review-translation step, ahead of the final document (which has its own
+// near-identical .docTerms rules, kept separate since those also carry the
+// section-divider styling this standalone card doesn't need).
+.checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.checklist li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--clearmed-text);
+}
+
+.checklist li::before {
+  content: "✓";
+  color: #16a34a;
+  font-weight: 700;
+}
+
+// Read-only original-notes box on the review-translation step -- same look
+// as .docOriginal pre in the final document, standalone (no section-divider
+// styling, since this one is the sole/first thing in its own card).
+.originalBox {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  background: rgba(100, 116, 139, 0.08);
+  border: 1px solid var(--clearmed-border);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  color: var(--clearmed-text);
+}
+
+// Generated-document view (result step) -- mirrors static/style.css's
+// .doc-* rules so the OpenMRS-embedded output reads the same as the
+// standalone wizard's step 4.
+
+.docFrame {
+  background: var(--clearmed-card-bg);
+  border: 1px solid var(--clearmed-border);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  padding: 24px;
+  margin-bottom: 20px;
+  max-width: 700px;
+}
+
+.docSuccessIcon {
+  color: #16a34a;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.docSuccessText {
+  color: var(--clearmed-text-muted);
+  font-size: 0.9rem;
+  margin: 4px 0 20px;
+}
+
+.docHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.docLogo {
+  height: 36px;
+  width: auto;
+}
+
+.docDate {
+  color: var(--clearmed-text-muted);
+  font-size: 0.85rem;
+}
+
+.docTitle {
+  margin: 0 0 16px;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+  color: var(--clearmed-text);
+}
+
+.docExplanation {
+  line-height: 1.6;
+
+  p {
+    margin: 0 0 12px;
+  }
+}
+
+.docOriginal,
+.docTerms {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--clearmed-border);
+
+  h4 {
+    margin: 0 0 12px;
+    font-size: 0.95rem;
+    color: var(--clearmed-text);
+  }
+}
+
+.docOriginal pre {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  background: rgba(100, 116, 139, 0.08);
+  border: 1px solid var(--clearmed-border);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  color: var(--clearmed-text);
+}
+
+.docTerms ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.docTerms li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.docTerms li::before {
+  content: "✓";
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.docDisclaimer {
+  margin: 28px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--clearmed-border);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--clearmed-text-muted);
+}
+
+// The document is rendered a second time into a React portal targeting
+// document.body (see the component's print-portal), specifically so this
+// print rule doesn't have to guess at OpenMRS's own page layout. Because
+// createPortal appends its content as a direct child of <body>, regardless
+// of how deeply our widget itself is nested inside OpenMRS's shell, `body >
+// *` reliably enumerates exactly "everything on the page" and we can hide
+// all of it except our own portal node -- no dependency on OpenMRS's own
+// positioning/flex/grid layout, unlike the position:absolute approach this
+// replaced (which broke inside real OpenMRS: the portal-less version
+// print-positioned relative to whatever ancestor OpenMRS's shell happens to
+// establish, instead of the true page origin).
+// `clearmed-print-portal` is a plain, un-hashed global class (not a CSS
+// Modules local name) so this rule can target it from outside the module.
+:global {
+  .clearmed-print-portal {
+    display: none;
+  }
+
+  @media print {
+    // !important on both rules: OpenMRS's own styles for its top-level
+    // containers can carry equal or higher specificity than a plain
+    // `body > *:not(...)` selector, and without !important they were
+    // winning the cascade -- the whole OpenMRS page kept printing
+    // alongside (before) the isolated document instead of being hidden.
+    body > *:not(.clearmed-print-portal) {
+      display: none !important;
+    }
+
+    .clearmed-print-portal {
+      display: block !important;
+      position: static;
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      box-shadow: none;
+      border: none;
+    }
+  }
+}
+
+// Local (CSS-modules-scoped) print overrides for the doc frame's own
+// sections -- separate from the :global block above since these need to
+// match the hashed classnames the component actually renders.
+@media print {
+  .docOriginal pre {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .docOriginal,
+  .docTerms {
+    break-inside: avoid;
+  }
+}

@@ -38,7 +38,10 @@ function goToStep(step) {
 
 const uploadBox = el("upload-box");
 const fileInput = el("file-input");
+const cameraInput = el("camera-input");
 const btnIdentify = el("btn-identify");
+const photoReview = el("photo-review");
+const photoReviewBox = el("photo-review-box");
 
 uploadBox.addEventListener("dragover", (e) => {
 	e.preventDefault();
@@ -63,14 +66,25 @@ fileInput.addEventListener("change", () => {
 	}
 });
 
+cameraInput.addEventListener("change", () => {
+	if (cameraInput.files.length) {
+		handleFile(cameraInput.files[0]);
+	}
+});
+
 async function handleFile(file) {
 	const name = file.name.toLowerCase();
 	btnIdentify.disabled = true;
 	el("upload-box-filename").textContent = "Reading file…";
 
+	const isImage = file.type.startsWith("image/");
+	photoReview.classList.add("hidden");
+
 	try {
 		let text;
-		if (name.endsWith(".pdf")) {
+		if (isImage) {
+			text = await readImageAsText(file);
+		} else if (name.endsWith(".pdf")) {
 			text = await readPdfAsText(file);
 		} else {
 			text = await readTextFile(file);
@@ -81,6 +95,9 @@ async function handleFile(file) {
 		btnIdentify.disabled = state.originalText.length === 0;
 		if (state.originalText.length === 0) {
 			el("upload-box-filename").textContent = `${file.name} (no text found)`;
+		} else if (isImage) {
+			photoReviewBox.value = state.originalText;
+			photoReview.classList.remove("hidden");
 		}
 	} catch (err) {
 		console.error(err);
@@ -89,12 +106,45 @@ async function handleFile(file) {
 	}
 }
 
+photoReviewBox.addEventListener("input", () => {
+	state.originalText = photoReviewBox.value.trim();
+	btnIdentify.disabled = state.originalText.length === 0;
+});
+
 function readTextFile(file) {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
 		reader.onload = () => resolve(reader.result);
 		reader.onerror = () => reject(reader.error);
 		reader.readAsText(file);
+	});
+}
+
+function readImageAsText(file) {
+	return new Promise((resolve, reject) => {
+		const xhr = new XMLHttpRequest();
+		xhr.open("POST", "/ocr");
+		xhr.upload.addEventListener("progress", (e) => {
+			if (e.lengthComputable) {
+				el("upload-box-filename").textContent = `Reading photo… ${Math.round((e.loaded / e.total) * 100)}%`;
+			}
+		});
+		xhr.addEventListener("load", () => {
+			if (xhr.status < 200 || xhr.status >= 300) {
+				reject(new Error(`Server returned ${xhr.status}`));
+				return;
+			}
+			try {
+				resolve(JSON.parse(xhr.responseText).text);
+			} catch (err) {
+				reject(err);
+			}
+		});
+		xhr.addEventListener("error", () => reject(new Error("Network error")));
+		el("upload-box-filename").textContent = "Reading photo… 0%";
+		const formData = new FormData();
+		formData.append("image", file);
+		xhr.send(formData);
 	});
 }
 
@@ -125,6 +175,7 @@ btnIdentify.addEventListener("click", async () => {
 		const data = await res.json();
 		state.detectedTerms = data.detected_terms || [];
 		state.uiSelection = data.ui_selection || {};
+		state.languageCode = data.language_code || "en";
 		renderTermsTable();
 		goToStep(2);
 	} catch (err) {
@@ -144,11 +195,12 @@ function renderTermsTable() {
 
 	state.detectedTerms.forEach((term) => {
 		const checked = state.uiSelection[term.main_term] !== false;
+		const explanation = state.languageCode === "he" ? term.simple_explanation : term.short_explanation;
 		const tr = document.createElement("tr");
 		tr.innerHTML = `
 			<td class="col-check"><input type="checkbox" data-term="${escapeHtml(term.main_term)}" ${checked ? "checked" : ""}></td>
-			<td class="term-name">${escapeHtml(term.main_term)}</td>
-			<td>${escapeHtml(term.short_explanation || "")}</td>
+			<td class="term-name">${escapeHtml(term.matched_text)}</td>
+			<td dir="auto">${escapeHtml(explanation || "")}</td>
 		`;
 		tbody.appendChild(tr);
 	});
@@ -204,6 +256,7 @@ function renderSummary() {
 	box.innerHTML = "";
 	sentencesOf(state.translatedText).forEach((sentence) => {
 		const p = document.createElement("p");
+		p.setAttribute("dir", "auto");
 		p.textContent = sentence;
 		box.appendChild(p);
 	});
@@ -220,7 +273,7 @@ function renderSummary() {
 }
 
 function sentencesOf(text) {
-	const parts = text.match(/[^.!?]+[.!?]*/g);
+	const parts = text.match(/[^.!?]+[.!?]*[)"']*/g);
 	return parts ? parts.map((s) => s.trim()).filter(Boolean) : [text];
 }
 
@@ -255,6 +308,7 @@ function renderExportDoc() {
 	explanation.innerHTML = "";
 	sentencesOf(state.translatedText).forEach((sentence) => {
 		const p = document.createElement("p");
+		p.setAttribute("dir", "auto");
 		p.textContent = sentence;
 		explanation.appendChild(p);
 	});
@@ -270,25 +324,6 @@ function renderExportDoc() {
 	});
 }
 
-el("btn-export-pdf").addEventListener("click", () => {
-	const btn = el("btn-export-pdf");
-	btn.disabled = true;
-	const { jsPDF } = window.jspdf;
-	const doc = new jsPDF({ unit: "pt", format: "letter" });
-	const frame = el("doc-frame");
-
-	doc.html(frame, {
-		callback: (doc) => {
-			doc.save("clearmed-summary.pdf");
-			btn.disabled = false;
-		},
-		x: 20,
-		y: 20,
-		width: 555,
-		windowWidth: frame.scrollWidth,
-	});
-});
-
 el("btn-print").addEventListener("click", () => {
 	window.print();
 });
@@ -303,6 +338,9 @@ el("btn-new-doc").addEventListener("click", () => {
 	state.explainedTermsList = [];
 
 	fileInput.value = "";
+	cameraInput.value = "";
+	photoReviewBox.value = "";
+	photoReview.classList.add("hidden");
 	el("upload-box-filename").textContent = "";
 	btnIdentify.disabled = true;
 
