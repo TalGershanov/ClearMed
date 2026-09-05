@@ -2,7 +2,6 @@ import os
 import sqlite3
 import json
 import logging
-from typing import Optional
 
 from config import DB_FILE
 from DAL.interface import DatabaseInterface

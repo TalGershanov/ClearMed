@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 
 class DatabaseInterface(ABC):
@@ -8,16 +7,6 @@ class DatabaseInterface(ABC):
 	logic layer knowing which one is in use."""
 
 	@abstractmethod
-	def get_term_by_name(self, term: str) -> Optional[dict]:
-		"""Look up a single term by name (case-insensitive).
-
-		Returns a dict shaped like:
-			{
-				"term": str,
-				"short_explanation": str | None,
-				"short_explanation_he": str | None,
-				"simple_explanation": str | None,
-				"synonyms": list[str],
 	def get_all_aliases(self) -> list[dict]:
 		"""Return every term_aliases row, for trie-building.
 
@@ -65,11 +54,7 @@ class DatabaseInterface(ABC):
 				"simple_explanation": str | None,
 				"short_explanation": str | None,
 			}
-		or None if not found. synonyms/categories are already JSON-decoded.
-		short_explanation_he is the Hebrew translation of short_explanation,
-		produced by a separate translation stage during DB creation (see
-		server_init/create_clearmed_db.py::translate_short_explanation_to_hebrew);
-		it is None wherever no successful translation exists yet.
 		or None if no explanation exists for that concept_id/language_code.
+		synonyms/categories are already JSON-decoded.
 		"""
 		...

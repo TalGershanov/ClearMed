@@ -28,12 +28,10 @@ def upsert_hebrew_explanation(connection, concept_id, short_explanation, hebrew_
 				hebrew_names[0],
 				body_text,
 				# PLACEHOLDER: copied verbatim from the matched English
-				# concept at scrape time, not translated. To generate a real
-				# Hebrew short explanation via OpenAI instead (e.g. once an
-				# improved selection/translation prompt exists), change what
-				# gets written into output/clearmed_terms_hebrew.json for
-				# this field, mirroring select_short_explanation_ai() in
-				# server_init/create_clearmed_db.py.
+				# concept at scrape time, not translated. Overwritten with a
+				# real AI translation by a later, decoupled pipeline stage --
+				# see create_clearmed_db.populate_hebrew_translations(),
+				# which runs after populate_hebrew_terms() in bootstrap.py.
 				short_explanation,
 			),
 		)

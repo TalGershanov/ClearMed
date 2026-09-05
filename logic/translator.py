@@ -139,28 +139,24 @@ def simplify_text_with_openai(original_text: str, explanation_map: dict) -> str:
 	logger.info("Rewrote text using %d approved explanation(s).", len(explanation_map))
 	return rewritten
 
-class ClinicalTranslator:
-	def __init__(self, db_dict_summery_string, db_get_explanation_func):
-		self.summary_string = db_dict_summery_string
-		self.db_search_function = db_get_explanation_func
-		logger.debug("ClinicalTranslator initialized.")
-
-	def get_approved_terms(self, ui_selection: dict) -> list:
-		approved = [term for term, is_selected in ui_selection.items() if is_selected]
-		logger.debug(f"Approved {len(approved)} terms from UI selection.")
-		return approved
-
-	def fetch_explanations(self, approved_terms) -> dict:
-		terms_dict = {}
-		for term in approved_terms:
-			try:
-				explained = self.db_search_function(term)
-				if explained and (self.summary_string in explained):
-					terms_dict[term] = explained[self.summary_string]
-			except Exception as e:
-				logger.exception(f"Error fetching explanation for '{term}': {e}")
-		logger.info(f"Successfully fetched {len(terms_dict)} explanations from DB.")
-		return terms_dict
+def build_explanation_map(detected_terms, ui_selection, explanation_field):
+	"""Filter detected_terms down to the user-approved ones with a usable
+	explanation_field value, deduplicated by term_name in first-seen order --
+	same approval/dedup semantics as apply_translations below, but returning
+	{term_name: explanation} for simplify_text_with_openai instead of
+	splicing spans: no position/offset handling needed since the OpenAI
+	rewrite integrates explanations by name in prose, not by text offset."""
+	explanation_map = {}
+	explained_terms_list = []
+	for term in detected_terms:
+		if not ui_selection.get(term["main_term"], False):
+			continue
+		explanation = term.get(explanation_field)
+		if not explanation or term["term_name"] in explanation_map:
+			continue
+		explanation_map[term["term_name"]] = explanation
+		explained_terms_list.append(term["term_name"])
+	return explanation_map, explained_terms_list
 
 def apply_translations(text, detected_terms, ui_selection, explanation_field):
 	"""Splice an explanation after each user-approved detected term's own

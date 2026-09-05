@@ -15,9 +15,7 @@ def init_trie():
 
 def get_term_details(concept_id, language_code="en"):
 	# receives a concept_id (e.g. a UMLS CUI) and returns its explanation
-	# from the DB for the given language. language_code defaults to "en"
-	# since this function is also handed to ClinicalTranslator, which calls
-	# it with just a concept_id.
+	# from the DB for the given language.
 	logger.debug(f"Looking up term details for concept_id='{concept_id}' (language_code={language_code})")
 	dal = get_dal()
 	return dal.get_term_details(concept_id, language_code)
