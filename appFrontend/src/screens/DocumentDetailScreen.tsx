@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ApiDocument, ApiDocumentDetail } from "@/types";
 import { Field } from "@/components/Field";
-import { NoteIcon, PDFIcon, ScanDocIcon, ShareIcon, SparkIcon } from "@/components/icons";
+import { NoteIcon, PDFIcon, ScanDocIcon, ShareIcon, Spinner, SparkIcon } from "@/components/icons";
 import { formatFileSize, inputStyle } from "@/lib/ui";
 
 // The "Original" tab shows real extracted text (Phase 4). "Plain Language"
@@ -21,12 +21,21 @@ function extractionPlaceholderMessage(status: ApiDocumentDetail["extraction_stat
   }
 }
 
-export function DocumentDetailScreen({ doc, detail }: { doc: ApiDocument; detail: ApiDocumentDetail | null }) {
+export function DocumentDetailScreen({ doc, detail, onRetrySimplify }: {
+  doc: ApiDocument;
+  detail: ApiDocumentDetail | null;
+  // Re-runs the real simplification pipeline for this document (also used
+  // for the very first simplify, since Terms Found only starts it -- a
+  // failure there lands the user right back here with a retry option).
+  onRetrySimplify: () => Promise<void>;
+}) {
   const [tab, setTab] = useState<"original" | "plain">("original");
   const [note, setNote] = useState("");
   const [showNotes, setShowNotes] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [shareEmail, setShareEmail] = useState("");
+  const [simplifying, setSimplifying] = useState(false);
+  const [simplifyError, setSimplifyError] = useState<string | null>(null);
 
   const typeLabel = doc.mime_type === "application/pdf" ? "PDF"
     : doc.mime_type === "image/jpeg" ? "JPEG image"
@@ -51,6 +60,65 @@ export function DocumentDetailScreen({ doc, detail }: { doc: ApiDocument; detail
         <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, color: "#6B6460", lineHeight: 1.6 }}>
           {extractionPlaceholderMessage(detail.extraction_status)}
         </p>
+      </div>
+    );
+  }
+
+  async function handleRetrySimplify() {
+    setSimplifying(true);
+    setSimplifyError(null);
+    try {
+      await onRetrySimplify();
+    } catch (err) {
+      setSimplifyError(err instanceof Error ? err.message : "Could not simplify the document. Please try again.");
+    } finally {
+      setSimplifying(false);
+    }
+  }
+
+  function renderPlainLanguageTab() {
+    if (!detail) {
+      return <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, color: "#9B9390" }}>Loading…</p>;
+    }
+    if (detail.simplification_status === "simplified" && detail.simplified_text) {
+      return (
+        <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, color: "#2C2420", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 420, overflowY: "auto" }}>
+          {detail.simplified_text}
+        </div>
+      );
+    }
+    if (detail.extraction_status !== "extracted") {
+      return (
+        <div style={{ background: "#F9F7F5", borderRadius: 11, padding: "14px 16px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <div style={{ marginTop: 2 }}><SparkIcon /></div>
+          <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, color: "#6B6460", lineHeight: 1.6 }}>
+            A plain-language version isn't available yet -- this document's text couldn't be extracted.
+          </p>
+        </div>
+      );
+    }
+    const message = detail.simplification_status === "failed"
+      ? "Simplifying this document failed. Your term selection was preserved -- you can try again."
+      : "This document hasn't been simplified yet.";
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ background: "#F9F7F5", borderRadius: 11, padding: "14px 16px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <div style={{ marginTop: 2 }}><SparkIcon /></div>
+          <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, color: "#6B6460", lineHeight: 1.6 }}>{message}</p>
+        </div>
+        {simplifyError && <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 12, color: "#E07B55" }}>{simplifyError}</p>}
+        <button
+          onClick={handleRetrySimplify}
+          disabled={simplifying}
+          style={{
+            alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 8,
+            padding: "9px 18px", background: simplifying ? "#F0A888" : "#E07B55", color: "#fff",
+            border: "none", borderRadius: 9, fontFamily: "Outfit, sans-serif", fontSize: 13, fontWeight: 600,
+            cursor: simplifying ? "not-allowed" : "pointer",
+          }}
+        >
+          {simplifying ? <><Spinner />Simplifying…</> : detail.simplification_status === "failed" ? "Try again" : "Simplify now"}
+        </button>
       </div>
     );
   }
@@ -91,14 +159,7 @@ export function DocumentDetailScreen({ doc, detail }: { doc: ApiDocument; detail
 
       {/* Content */}
       <div style={{ background: "#fff", borderRadius: 18, padding: 18, minHeight: 120, boxShadow: "0 1px 4px rgba(0,0,0,0.05)", marginBottom: 14 }}>
-        {tab === "original" ? renderOriginalTab() : (
-          <div style={{ background: "#F9F7F5", borderRadius: 11, padding: "14px 16px", display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <div style={{ marginTop: 2 }}><SparkIcon /></div>
-            <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, color: "#6B6460", lineHeight: 1.6 }}>
-              Not processed yet — ClearMed plain-language summaries aren't available until a later phase.
-            </p>
-          </div>
-        )}
+        {tab === "original" ? renderOriginalTab() : renderPlainLanguageTab()}
       </div>
 
       <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 11, color: "#C4BDB9", marginBottom: 14 }}>Original file: {doc.original_filename}</p>

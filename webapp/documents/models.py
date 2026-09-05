@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from webapp.core.database import Base
@@ -19,6 +19,28 @@ class ExtractionStatus(str, enum.Enum):
 	# apart from "attempted, needs OCR".
 	NO_TEXT_FOUND = "no_text_found"
 	# A genuine parsing error (corrupted/malformed file).
+	FAILED = "failed"
+
+
+class AnalysisStatus(str, enum.Enum):
+	# Never attempted (e.g. no usable extracted text yet).
+	NOT_ANALYSED = "not_analysed"
+	# ClearMed term detection ran and detected_terms/term_selection are populated
+	# (detected_terms may legitimately be an empty list -- zero terms found).
+	ANALYSED = "analysed"
+	# Detection raised; original_text and the upload itself are untouched.
+	FAILED = "failed"
+
+
+class SimplificationStatus(str, enum.Enum):
+	NOT_SIMPLIFIED = "not_simplified"
+	# The pipeline ran to completion. Note this does NOT distinguish a real
+	# OpenAI rewrite from simplify_text_with_openai's own internal "return
+	# original_text unchanged" fallback on API failure -- that fallback is
+	# that function's existing, intentional contract (see logic/translator.py),
+	# not something this layer reinterprets. FAILED below is reserved for a
+	# failure in *this* layer (e.g. a DB error), not an OpenAI-side hiccup.
+	SIMPLIFIED = "simplified"
 	FAILED = "failed"
 
 
@@ -55,3 +77,23 @@ class Document(Base):
 	updated_at: Mapped[datetime] = mapped_column(
 		DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
 	)
+
+	# --- Phase 5: ClearMed analysis + simplification, persisted so reopening
+	# the document never loses them. Plain (not JSONB) JSON columns -- works
+	# identically on Postgres and the SQLite engine the test suite uses,
+	# and we don't need Postgres-only query features here.
+	analysis_status: Mapped[str] = mapped_column(
+		String(32), nullable=False, server_default=AnalysisStatus.NOT_ANALYSED.value
+	)
+	# Exactly logic.medical_term_detector.detect_terms_with_explanations()'s
+	# return value, stored verbatim (list of dicts) -- never re-modeled, so it
+	# can't drift out of sync with whatever fields that function returns.
+	detected_terms: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+	# {concept_id: bool} -- keyed by concept_id (main_term), the same key
+	# build_ui_selection()/ui_selection use. Never keyed by term_name.
+	term_selection: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+	simplification_status: Mapped[str] = mapped_column(
+		String(32), nullable=False, server_default=SimplificationStatus.NOT_SIMPLIFIED.value
+	)
+	simplified_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

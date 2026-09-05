@@ -6,8 +6,15 @@ from sqlalchemy.orm import Session
 
 from webapp.auth.deps import get_current_user
 from webapp.core.database import get_db
-from webapp.documents.schemas import DocumentDetail, DocumentOut
-from webapp.documents.service import delete_document_and_file, get_owned_document_or_404, save_uploaded_document
+from webapp.documents.schemas import DocumentDetail, DocumentOut, TermSelectionUpdate
+from webapp.documents.service import (
+	analyse_document,
+	delete_document_and_file,
+	get_owned_document_or_404,
+	save_uploaded_document,
+	simplify_document,
+	update_term_selection,
+)
 from webapp.folders.service import get_owned_folder_or_404
 from webapp.users.models import User
 
@@ -42,3 +49,30 @@ def delete_document(document_id: int, current_user: User = Depends(get_current_u
 	document = get_owned_document_or_404(db, current_user.id, document_id)
 	delete_document_and_file(db, document)
 	return None
+
+
+@router.post("/{document_id}/analyse", response_model=DocumentDetail)
+def analyse_document_endpoint(
+	document_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+	document = get_owned_document_or_404(db, current_user.id, document_id)
+	return analyse_document(db, document)
+
+
+@router.patch("/{document_id}/selection", response_model=DocumentDetail)
+def update_selection_endpoint(
+	document_id: int,
+	payload: TermSelectionUpdate,
+	current_user: User = Depends(get_current_user),
+	db: Session = Depends(get_db),
+):
+	document = get_owned_document_or_404(db, current_user.id, document_id)
+	return update_term_selection(db, document, payload.term_selection)
+
+
+@router.post("/{document_id}/simplify", response_model=DocumentDetail)
+def simplify_document_endpoint(
+	document_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+	document = get_owned_document_or_404(db, current_user.id, document_id)
+	return simplify_document(db, document)

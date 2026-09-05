@@ -6,9 +6,20 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from webapp.core import config
-from webapp.documents.models import Document, ExtractionStatus
+from webapp.documents.models import AnalysisStatus, Document, ExtractionStatus, SimplificationStatus
 from webapp.extraction import get_extractor
 from webapp.storage import get_storage
+
+# Phase 5: reuses the exact same ClearMed functions the live /analyse and
+# /translate endpoints call (see server/api.py) -- never a duplicate
+# implementation, never an HTTP call to our own API.
+from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations
+from logic.term_detectors.hebrew import detect_language_code
+from logic.translator import build_explanation_map, simplify_text_with_openai
+
+# Same explanation field /translate uses (see server/api.py::translate_text) --
+# keeping this in one place means both endpoints stay consistent by construction.
+_EXPLANATION_FIELD = "short_explanation"
 
 # Never log full extracted document text -- it may be medical content. Log
 # lines below only ever reference ids, mime types, and status values.
@@ -142,6 +153,98 @@ async def save_uploaded_document(
 	db.refresh(document)
 
 	logger.info("User id=%s uploaded document id=%s into folder id=%s", user_id, document.id, folder_id)
+	return document
+
+
+def analyse_document(db: Session, document: Document) -> Document:
+	"""Runs the same ClearMed term-detection logic /analyse uses against this
+	document's own extracted text and persists the result, so reopening the
+	document never loses it.
+
+	Idempotent: if analysis already succeeded, returns the persisted result
+	as-is rather than re-running detection (no explicit re-analyse trigger
+	exists yet -- keep this simple until one is actually needed)."""
+	if document.analysis_status == AnalysisStatus.ANALYSED.value and document.detected_terms is not None:
+		return document
+
+	if document.extraction_status != ExtractionStatus.EXTRACTED.value or not document.original_text:
+		raise HTTPException(
+			status_code=status.HTTP_409_CONFLICT,
+			detail="Document has no extracted text to analyse",
+		)
+
+	try:
+		language_code = detect_language_code(document.original_text)
+		detected_terms = detect_terms_with_explanations(document.original_text, language_code)
+	except ValueError as e:
+		document.analysis_status = AnalysisStatus.FAILED.value
+		db.commit()
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+	except Exception:
+		document.analysis_status = AnalysisStatus.FAILED.value
+		db.commit()
+		# Deliberately no document content in this log line.
+		logger.exception("Analysis failed for document id=%s", document.id)
+		raise HTTPException(
+			status_code=status.HTTP_502_BAD_GATEWAY,
+			detail="Analysis failed. The document and its extracted text were preserved.",
+		)
+
+	document.detected_terms = detected_terms
+	document.term_selection = build_ui_selection(detected_terms)
+	document.analysis_status = AnalysisStatus.ANALYSED.value
+	db.commit()
+	db.refresh(document)
+
+	logger.info("Analysed document id=%s: %d term(s) detected", document.id, len(detected_terms))
+	return document
+
+
+def update_term_selection(db: Session, document: Document, term_selection: dict) -> Document:
+	if document.analysis_status != AnalysisStatus.ANALYSED.value:
+		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Document has not been analysed yet")
+
+	document.term_selection = term_selection
+	db.commit()
+	db.refresh(document)
+	return document
+
+
+def simplify_document(db: Session, document: Document) -> Document:
+	"""Runs the same build_explanation_map + simplify_text_with_openai pipeline
+	/translate uses, against this document's persisted detected_terms and
+	term_selection. Freely re-callable (no "already simplified" guard) so the
+	user can change their selection and simplify again, or just retry.
+
+	analysis_status/detected_terms/term_selection/original_text are never
+	touched here -- only simplification_status/simplified_text change, so a
+	failure in this function can't lose the analysis or the user's selections."""
+	if document.analysis_status != AnalysisStatus.ANALYSED.value or document.detected_terms is None:
+		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Document has not been analysed yet")
+
+	try:
+		selection = document.term_selection or {}
+		explanation_map, _explained_terms = build_explanation_map(
+			document.detected_terms, selection, _EXPLANATION_FIELD
+		)
+		simplified_text = simplify_text_with_openai(document.original_text, explanation_map)
+		document.simplified_text = simplified_text
+		document.simplification_status = SimplificationStatus.SIMPLIFIED.value
+		db.commit()
+	except Exception:
+		db.rollback()
+		document.simplification_status = SimplificationStatus.FAILED.value
+		db.commit()
+		logger.exception("Simplification failed for document id=%s", document.id)
+		raise HTTPException(
+			status_code=status.HTTP_502_BAD_GATEWAY,
+			detail="Simplification failed. Your analysis and selections were preserved -- you can try again.",
+		)
+
+	db.refresh(document)
+	logger.info(
+		"Simplified document id=%s using %d approved explanation(s)", document.id, len(explanation_map)
+	)
 	return document
 
 

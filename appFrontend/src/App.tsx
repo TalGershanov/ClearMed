@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchCurrentUser, login as loginRequest, logout as logoutRequest } from "@/api/auth";
-import { fetchDocument, uploadDocument } from "@/api/documents";
+import { analyseDocument, fetchDocument, simplifyDocument, updateTermSelection, uploadDocument } from "@/api/documents";
 import { createFolder as createFolderRequest, fetchFolder, fetchRootFolders } from "@/api/folders";
 import { AppBar } from "@/components/AppBar";
 import { BottomNav } from "@/components/BottomNav";
@@ -8,6 +8,7 @@ import { DocumentDetailScreen } from "@/screens/DocumentDetailScreen";
 import { FolderScreen } from "@/screens/FolderScreen";
 import { LibraryScreen } from "@/screens/LibraryScreen";
 import { LoginScreen } from "@/screens/LoginScreen";
+import TermsFoundScreen from "@/screens/TermsFoundScreen";
 import { UploadScreen } from "@/screens/UploadScreen";
 import type { ApiDocument, ApiDocumentDetail, ApiFolder, ApiFolderDetail, ApiUser, Doc, Screen } from "@/types";
 
@@ -149,15 +150,53 @@ export default function App() {
     }
   }
 
-  async function uploadAndOpenFolder(folder: ApiFolder, name: string, file: File): Promise<void> {
-    // Despite the button saying "Upload & Analyze", this phase only stores
-    // the file -- no ClearMed processing runs yet.
-    await uploadDocument(folder, name, file);
-    // navigate into the folder so the newly uploaded document is visible
-    await drillInto(folder);
+  // Upload -> (extraction already ran server-side) -> analyse -> Terms Found,
+  // for a document with usable extracted text. A document with no usable
+  // text yet (image, scanned PDF, or extraction failure) has nothing to
+  // analyse, so it lands in its folder exactly as before Phase 5.
+  async function uploadAndAnalyse(folder: ApiFolder, name: string, file: File): Promise<void> {
+    const uploaded = await uploadDocument(folder, name, file);
+    if (uploaded.extraction_status !== "extracted") {
+      await drillInto(folder);
+      return;
+    }
+    const analysed = await analyseDocument(uploaded.id);
+    // Establishes a coherent breadcrumb trail (Documents > folder > doc) for
+    // the Back button on the Document Detail screen this flow eventually
+    // reaches, the same shape drillInto() would have set.
+    setNavPath([{ id: folder.id, name: folder.name }]);
+    setSelectedDoc(uploaded);
+    setSelectedDocDetail(analysed);
+    setScreen("terms-found");
   }
 
-  const isApp = screen !== "login";
+  // Persists the user's term selection so it survives a refresh/reopen.
+  // Best-effort: a transient failure here doesn't lose the local selection
+  // the user sees -- their next toggle sends the current full state again.
+  async function updateSelection(termSelection: Record<string, boolean>) {
+    if (!selectedDoc) return;
+    try {
+      setSelectedDocDetail(await updateTermSelection(selectedDoc.id, termSelection));
+    } catch {
+      // best-effort -- see comment above
+    }
+  }
+
+  // Runs the real ClearMed simplification pipeline and, on success, opens
+  // Document Detail on the Plain Language tab's result. On failure this
+  // throws -- TermsFoundScreen catches it, shows the error, and keeps the
+  // user right there so they can retry without losing their selection.
+  async function simplifyAndOpenDocument(): Promise<void> {
+    if (!selectedDoc) return;
+    const updated = await simplifyDocument(selectedDoc.id);
+    setSelectedDocDetail(updated);
+    setScreen("document");
+  }
+
+  // TermsFoundScreen brings its own full-screen header/back-button/bottom bar
+  // (see the component), so -- like "login" -- it renders standalone, not
+  // nested inside the shared AppBar/BottomNav shell.
+  const isApp = screen !== "login" && screen !== "terms-found";
 
   return (
     <>
@@ -167,6 +206,17 @@ export default function App() {
       `}</style>
       <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#F9F7F5", overflow: "hidden" }}>
         {screen === "login" && <LoginScreen onLogin={login} />}
+
+        {screen === "terms-found" && selectedDocDetail && (
+          <TermsFoundScreen
+            docName={selectedDoc?.name ?? "Document"}
+            terms={selectedDocDetail.detected_terms ?? []}
+            initialSelection={selectedDocDetail.term_selection ?? {}}
+            onBack={() => setScreen("upload")}
+            onSelectionChange={updateSelection}
+            onSimplify={simplifyAndOpenDocument}
+          />
+        )}
 
         {isApp && (
           <>
@@ -195,9 +245,11 @@ export default function App() {
                 />
               )}
               {screen === "upload" && (
-                <UploadScreen folders={rootFolders} onUpload={uploadAndOpenFolder} />
+                <UploadScreen folders={rootFolders} onUpload={uploadAndAnalyse} />
               )}
-              {screen === "document" && selectedDoc && <DocumentDetailScreen doc={selectedDoc} detail={selectedDocDetail} />}
+              {screen === "document" && selectedDoc && (
+                <DocumentDetailScreen doc={selectedDoc} detail={selectedDocDetail} onRetrySimplify={simplifyAndOpenDocument} />
+              )}
             </div>
 
             {screen !== "document" && screen !== "folder" && (

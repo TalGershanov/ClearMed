@@ -29,10 +29,37 @@ export interface ApiDocument {
   updated_at: string;
 }
 
+// Mirrors logic.medical_term_detector.detect_terms_with_explanations()'s
+// output -- persisted verbatim server-side (webapp/documents/models.py's
+// detected_terms JSON column), so this stays a direct mirror of that
+// function's real return shape, not a separately-invented contract.
+export interface DetectedTerm {
+  matched_text: string;
+  main_term: string; // concept_id -- the selection key, never term_name
+  term_name: string;
+  start: number;
+  end: number;
+  short_explanation: string | null;
+  simple_explanation: string | null;
+  categories: string[];
+  synonyms: string[];
+}
+
+export type AnalysisStatus = "not_analysed" | "analysed" | "failed";
+export type SimplificationStatus = "not_simplified" | "simplified" | "failed";
+
 // Mirrors webapp/documents/schemas.py::DocumentDetail -- only ever fetched
-// from GET /documents/{id}, never from a folder listing.
+// from GET /documents/{id} (and returned by the analyse/selection/simplify
+// endpoints), never from a folder listing.
 export interface ApiDocumentDetail extends ApiDocument {
   original_text: string | null;
+  analysis_status: AnalysisStatus;
+  // null = not analysed yet; [] = analysed, zero terms found (distinct states).
+  detected_terms: DetectedTerm[] | null;
+  // keyed by concept_id (DetectedTerm.main_term), never by term_name.
+  term_selection: Record<string, boolean> | null;
+  simplification_status: SimplificationStatus;
+  simplified_text: string | null;
 }
 
 // Mirrors webapp/folders/schemas.py::FolderDetail
@@ -41,7 +68,7 @@ export interface ApiFolderDetail extends ApiFolder {
   documents: ApiDocument[];
 }
 
-export type Screen = "login" | "upload" | "library" | "folder" | "document";
+export type Screen = "login" | "upload" | "library" | "folder" | "document" | "terms-found";
 
 // Mock documents, used only by the Library search box -- no backend
 // document search exists yet (out of scope for now).

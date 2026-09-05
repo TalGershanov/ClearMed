@@ -9,6 +9,9 @@ import { isAcceptedFile, MAX_UPLOAD_BYTES } from "@/lib/uploadValidation";
 
 export function UploadScreen({ folders, onUpload }: {
   folders: ApiFolder[];
+  // For a text-based PDF, this now also runs ClearMed analysis and the
+  // caller navigates to Terms Found; other file types still just land in
+  // the folder, exactly as before Phase 5.
   onUpload: (folder: ApiFolder, name: string, file: File) => Promise<void>;
 }) {
   const [dragOver, setDragOver] = useState(false);
