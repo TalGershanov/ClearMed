@@ -1,13 +1,12 @@
 import asyncio
+import functools
 import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from log_config import setup_logging
-
-setup_logging()
 
 from google.genai import errors as genai_errors
+from log_config import setup_logging
 from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations, get_term_details, init_trie
 from logic.ocr import extract_text_from_image
 from logic.translator import ClinicalTranslator
@@ -26,11 +25,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Dict
 
+setup_logging()
+
 logger = logging.getLogger("clearmed.api")
 logger.info("--- Starting ClearMed Application ---")
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
 	# build the medical term trie once, before the server starts accepting requests
 	init_trie()
 	yield
@@ -40,10 +41,12 @@ app = FastAPI(title="ClearMed API", lifespan=lifespan)
 
 class AnalyseRequest(BaseModel):
 	text: str
+	language_code: str = "en"
 
 class TranslateRequest(BaseModel):
 	text: str
 	ui_selection: Dict[str, bool]
+	language_code: str = "en"
 
 # Mounted as its own sub-app (not routes on `app` directly) so the CORS
 # allowlist below applies only to /openmrs/*, not to every route on `app`
@@ -90,31 +93,39 @@ async def ocr_image(image: UploadFile = File(...)):
 @app.post("/analyse")
 @openmrs_app.post("/analyse")
 async def analyse_text(request: AnalyseRequest):
-	logger.info("analysing text for medical terms")
-	result = detect_terms_with_explanations(request.text)
+	logger.info("analysing text for medical terms (language_code=%s)", request.language_code)
+	try:
+		result = detect_terms_with_explanations(request.text, request.language_code)
+	except ValueError as e:
+		raise HTTPException(status_code=400, detail=str(e))
 	ui_selection = build_ui_selection(result)
 	return {"detected_terms": result, "ui_selection": ui_selection}
 
 @app.post("/translate")
 @openmrs_app.post("/translate")
 async def translate_text(request: TranslateRequest):
-	logger.info("translating text based on ui selection")
-	translator = ClinicalTranslator("short_explanation", get_term_details)
+	logger.info("translating text based on ui selection (language_code=%s)", request.language_code)
+	translator = ClinicalTranslator("short_explanation", functools.partial(get_term_details, language_code=request.language_code))
 	approved_terms = translator.get_approved_terms(request.ui_selection)
 	terms_with_data = translator.fetch_explanations(approved_terms)
 	final_text = translator.replace_terms(request.text, terms_with_data)
 	return {"translated_text": final_text, "explained_terms_list": approved_terms}
 
-@openmrs_app.get("/patients/{patient_uuid}", response_model=OpenMRSPatient)
-async def get_openmrs_patient(patient_uuid: str):
-	logger.info("fetching OpenMRS patient %s", patient_uuid)
+async def _call_openmrs(action):
+	"""Runs `action(client)` against the shared OpenMRS client, mapping client
+	failures to the HTTPException the calling endpoint should raise."""
 	try:
 		client = get_openmrs_client()
-		return await client.get_patient(patient_uuid)
+		return await action(client)
 	except RuntimeError as e:
 		raise HTTPException(status_code=503, detail=str(e))
 	except OpenMRSAPIError as e:
 		raise HTTPException(status_code=e.status_code, detail=e.message)
+
+@openmrs_app.get("/patients/{patient_uuid}", response_model=OpenMRSPatient)
+async def get_openmrs_patient(patient_uuid: str):
+	logger.info("fetching OpenMRS patient %s", patient_uuid)
+	return await _call_openmrs(lambda client: client.get_patient(patient_uuid))
 
 @openmrs_app.post("/observations", response_model=OpenMRSObservation)
 async def create_openmrs_observation(request: ObservationCreateRequest):
@@ -140,13 +151,7 @@ async def create_openmrs_observation(request: ObservationCreateRequest):
 	}
 	if request.encounter_uuid:
 		payload["encounter"] = request.encounter_uuid
-	try:
-		client = get_openmrs_client()
-		return await client.create_observation(payload)
-	except RuntimeError as e:
-		raise HTTPException(status_code=503, detail=str(e))
-	except OpenMRSAPIError as e:
-		raise HTTPException(status_code=e.status_code, detail=e.message)
+	return await _call_openmrs(lambda client: client.create_observation(payload))
 
 @openmrs_app.get("/patients/{patient_uuid}/notes", response_model=NotesResponse)
 async def get_patient_notes(patient_uuid: str):
@@ -157,13 +162,7 @@ async def get_patient_notes(patient_uuid: str):
 			detail="OPENMRS_NOTE_CONCEPT_UUID is not configured; set it to your OpenMRS "
 			"instance's concept UUID for clinical notes (see openmrs/README.md).",
 		)
-	try:
-		client = get_openmrs_client()
-		observations = await client.list_observations(patient_uuid, OPENMRS_NOTE_CONCEPT_UUID)
-	except RuntimeError as e:
-		raise HTTPException(status_code=503, detail=str(e))
-	except OpenMRSAPIError as e:
-		raise HTTPException(status_code=e.status_code, detail=e.message)
+	observations = await _call_openmrs(lambda client: client.list_observations(patient_uuid, OPENMRS_NOTE_CONCEPT_UUID))
 	notes = []
 	for obs in observations:
 		value = obs.get("value")

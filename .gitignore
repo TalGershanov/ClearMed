@@ -9,6 +9,7 @@ output/
 logs/
 הגשות האב.zip
 health_topics.xml
+MRCONSO.RRF
 *.pem
 *.bak
 openmrs-frontend/esm-clearmed-widget/node_modules/

@@ -15,12 +15,16 @@ class ClinicalTranslator:
 		return approved
 
 	def fetch_explanations(self, approved_terms) -> dict:
+		# Keyed by term_name (the readable text that can actually appear in
+		# the user's original text), not by `term` -- `term` is now a
+		# concept_id (e.g. a UMLS CUI), which replace_terms() below could
+		# never find as a literal substring of the source text.
 		terms_dict = {}
 		for term in approved_terms:
-			try: #here - already have dict from main so use that instead of yuvals func- so change class to recieve the dict OR just the term list and then use yuvals func
+			try:
 				explained = self.db_search_function(term)
-				if explained and (self.summary_string in explained):
-					terms_dict[term] = explained[self.summary_string]
+				if explained and (self.summary_string in explained) and explained.get("term_name"):
+					terms_dict[explained["term_name"]] = explained[self.summary_string]
 			except Exception as e:
 				logger.exception(f"Error fetching explanation for '{term}': {e}")
 		logger.info(f"Successfully fetched {len(terms_dict)} explanations from DB.")

@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 import bootstrap
+_ = bootstrap  # side-effect import: puts the repo root on sys.path (see server_init/bootstrap.py)
 from config import JSON_FILE, DB_FILE
+from DAL.db import SQLiteDatabase
 
 load_dotenv()
 
@@ -19,6 +21,8 @@ OPENAI_MODEL = "gpt-4o-mini"
 @functools.cache
 def _get_openai_client() -> OpenAI:
 	return OpenAI()
+
+_QUESTION_PREFIXES = ("what is ", "what are ", "what causes ", "who is ", "who are ", "how is ", "how are ")
 
 def _clean_candidate_sentences(full_explanation):
 	if not full_explanation:
@@ -34,19 +38,7 @@ def _clean_candidate_sentences(full_explanation):
 	for sentence in sentences:
 		lower_sentence = sentence.lower().strip()
 		# skip question sentences that don't explain anything
-		if lower_sentence.startswith("what is "):
-			continue
-		if lower_sentence.startswith("what are "):
-			continue
-		if lower_sentence.startswith("what causes "):
-			continue
-		if lower_sentence.startswith("who is "):
-			continue
-		if lower_sentence.startswith("who are "):
-			continue
-		if lower_sentence.startswith("how is "):
-			continue
-		if lower_sentence.startswith("how are "):
+		if lower_sentence.startswith(_QUESTION_PREFIXES):
 			continue
 		cleaned_sentences.append(sentence)
 	# if filtering removed everything, revert to the original sentences
@@ -234,66 +226,130 @@ def select_short_explanation_ai(full_explanation, term=None, max_words=30):
 	selected = sentences[selected_index]
 	return _truncate_to_max_words(selected, max_words)
 
-def create_tables(cursor):
+def create_concept_tables(cursor):
 	cursor.execute("""
-		CREATE TABLE IF NOT EXISTS medical_terms (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			source_id TEXT,
-			term TEXT NOT NULL,
-			simple_explanation TEXT,
-			short_explanation TEXT,
-			synonyms TEXT,
+		CREATE TABLE IF NOT EXISTS concepts (
+			concept_id TEXT PRIMARY KEY,
 			categories TEXT
 		)
 	""")
+	cursor.execute("""
+		CREATE TABLE IF NOT EXISTS explanations (
+			explanation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+			concept_id TEXT NOT NULL REFERENCES concepts (concept_id),
+			language_code TEXT NOT NULL,
+			term_name TEXT NOT NULL,
+			simple_explanation TEXT,
+			short_explanation TEXT,
+			UNIQUE (concept_id, language_code)
+		)
+	""")
+	cursor.execute("""
+		CREATE TABLE IF NOT EXISTS term_aliases (
+			alias_text TEXT PRIMARY KEY,
+			concept_id TEXT NOT NULL REFERENCES concepts (concept_id),
+			language_code TEXT
+		)
+	""")
+	cursor.execute("""
+		CREATE INDEX IF NOT EXISTS idx_term_aliases_concept_id
+		ON term_aliases (concept_id)
+	""")
 
-def insert_terms(cursor, terms):
+def insert_concepts(terms):
+	# Writes through DAL.insert_concept() rather than raw sqlite3: the
+	# interface already declares exactly this write primitive (one concept +
+	# its explanations + aliases in one transaction), so there's no reason
+	# for this script to hand-roll a second copy of that INSERT logic. One
+	# connection is opened for the whole run and passed to every call so the
+	# ~1000-term seed is one transaction/commit, not one per concept.
+	dal = SQLiteDatabase()
+	connection = dal._get_connection()
 	total = len(terms)
-	for index, item in enumerate(terms, start=1):
-		simple_explanation = item.get("simple_explanation")
-		short_explanation = select_short_explanation_ai(simple_explanation, term=item.get("term"))
-		if index % 50 == 0:
-			logger.info("Processed %d/%d terms", index, total)
-		cursor.execute("""
-			INSERT INTO medical_terms (
-				source_id,
-				term,
-				short_explanation,
-				simple_explanation,
-				synonyms,
-				categories
-			)
-			VALUES (?, ?, ?, ?, ?, ?)
-		""", (
-			item.get("source_id"),
-			item.get("term"),
-			short_explanation,
-			simple_explanation,
-			json.dumps(item.get("synonyms", []), ensure_ascii=False),
-			json.dumps(item.get("categories", []), ensure_ascii=False)
-		))
+	try:
+		with connection:
+			for index, item in enumerate(terms, start=1):
+				simple_explanation = item.get("simple_explanation")
+				# OpenAI hook (English): this is where the English short_explanation
+				# is generated today. If you're improving this algorithm, change it
+				# here -- select_short_explanation_ai() above.
+				short_explanation = select_short_explanation_ai(simple_explanation, term=item.get("term"))
+				if index % 50 == 0:
+					logger.info("Processed %d/%d terms", index, total)
+				term = item.get("term")
+				synonyms = item.get("synonyms", [])
+				dal.insert_concept(
+					concept_id=item.get("source_id"),
+					categories=item.get("categories", []),
+					explanations=[{
+						"language_code": "en",
+						"term_name": term,
+						"simple_explanation": simple_explanation,
+						"short_explanation": short_explanation,
+					}],
+					aliases=[
+						{"alias_text": term, "language_code": "en"},
+						*({"alias_text": synonym, "language_code": "en"} for synonym in synonyms),
+					],
+					connection=connection,
+				)
+	finally:
+		connection.close()
 
 def create_database():
-	# Deliberately writes via raw sqlite3 rather than DAL/db.py: this is offline
-	# schema/seed tooling with its own lifecycle, and DatabaseInterface only
-	# declares the read methods the running app needs. If SQLiteDatabase is ever
-	# swapped for a different backend, this script must be updated to match, or
-	# it will keep seeding a store the app no longer reads from.
 	with open(JSON_FILE, "r", encoding="utf-8") as f:
 		data = json.load(f)
 	terms = data["terms"]
 	connection = sqlite3.connect(DB_FILE)
 	cursor = connection.cursor()
+	# Retire the old flat schema and (re)build the normalized one -- a fresh
+	# rebuild lands directly in the current concepts/explanations/term_aliases
+	# shape, so no separate migration step is ever needed after this runs.
 	cursor.execute("DROP TABLE IF EXISTS medical_terms")
-	create_tables(cursor)
-	cursor.execute("DELETE FROM medical_terms")
-	insert_terms(cursor, terms)
+	cursor.execute("DROP TABLE IF EXISTS term_aliases")
+	cursor.execute("DROP TABLE IF EXISTS explanations")
+	cursor.execute("DROP TABLE IF EXISTS concepts")
+	create_concept_tables(cursor)
 	connection.commit()
 	connection.close()
+
+	insert_concepts(terms)
 	print(f"Database created: {DB_FILE}")
-	print(f"Inserted terms: {len(terms)}")
+	print(f"Inserted concepts: {len(terms)}")
+
+	# Smoke check: verify the DAL read path agrees with what this script just
+	# wrote. Catches write/read schema drift (e.g. a reordered SELECT or
+	# CREATE TABLE) immediately at seed time instead of silently corrupting
+	# data in production.
+	first_term = terms[0]
+	dal = SQLiteDatabase()
+	fetched = dal.get_term_details(first_term["source_id"], "en")
+	if fetched is None:
+		raise AssertionError(
+			f"Smoke check failed: DAL could not find seeded concept {first_term['source_id']!r}"
+		)
+	if fetched["short_explanation"] is not None and not isinstance(fetched["short_explanation"], str):
+		raise AssertionError(
+			"Smoke check failed: short_explanation has unexpected type -- check DAL/db.py column mapping"
+		)
+	for field, expected in (
+		("term_name", first_term["term"]),
+		("simple_explanation", first_term.get("simple_explanation")),
+		("categories", first_term.get("categories", [])),
+	):
+		if fetched[field] != expected:
+			raise AssertionError(
+				f"Smoke check failed: {field} mismatch ({fetched[field]!r} != {expected!r})"
+			)
+	print(f"Smoke check passed: DAL read back concept {first_term['source_id']!r} correctly")
 
 if __name__ == "__main__":
 	from log_config import setup_logging
+	from populate_hebrew_terms import populate_hebrew_terms
 	setup_logging()
 	create_database()
+	# create_database() drops and rebuilds concepts/explanations/term_aliases
+	# from the English JSON alone, which would silently wipe any existing
+	# Hebrew data if this script is run standalone instead of through
+	# bootstrap.py -- repopulate it here so that can't happen.
+	populate_hebrew_terms()
