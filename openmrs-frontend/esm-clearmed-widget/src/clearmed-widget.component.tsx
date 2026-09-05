@@ -250,7 +250,7 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
                       checked={!!uiSelection[term.main_term]}
                       onChange={() => toggleTerm(term.main_term)}
                     />
-                    {term.main_term}
+                    {term.matched_text}
                   </label>
                 </li>
               ))}

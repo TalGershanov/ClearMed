@@ -109,7 +109,7 @@ async def translate_text(request: TranslateRequest):
 	approved_terms = translator.get_approved_terms(request.ui_selection)
 	terms_with_data = translator.fetch_explanations(approved_terms)
 	final_text = translator.replace_terms(request.text, terms_with_data)
-	return {"translated_text": final_text, "explained_terms_list": approved_terms}
+	return {"translated_text": final_text, "explained_terms_list": list(terms_with_data.keys())}
 
 async def _call_openmrs(action):
 	"""Runs `action(client)` against the shared OpenMRS client, mapping client
