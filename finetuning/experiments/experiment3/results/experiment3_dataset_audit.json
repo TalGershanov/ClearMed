@@ -1,0 +1,65 @@
+{
+  "seed": 42,
+  "totals": {
+    "final_training_examples_total_rows": 416,
+    "natural_rows": 208,
+    "shuffled_rows": 208,
+    "unique_examples": 208
+  },
+  "contribution_by_provenance": {
+    "experiment1_original": 117,
+    "experiment2_added_annotations": 41,
+    "experiment3_new_annotations": 50,
+    "experiment2_shuffled_augmentation": 158,
+    "experiment3_shuffled_augmentation": 50
+  },
+  "contribution_by_experiment": {
+    "experiment1_total_rows": 234,
+    "experiment2_total_rows": 82,
+    "experiment3_total_rows": 100
+  },
+  "is_shuffled_row_counts": {
+    "False": 208,
+    "True": 208
+  },
+  "duplicate_source_id_check": {
+    "duplicates_found": []
+  },
+  "held_out_test_set_overlap_check": {
+    "overlap_source_ids": []
+  },
+  "index_validity_check": {
+    "invalid_rows": []
+  },
+  "jsonl_structural_validity_check": {
+    "invalid_row_indices": []
+  },
+  "new_batch_shuffle_pairing_check": {
+    "problems": []
+  },
+  "candidate_count_bucket_distribution_combined_pool": {
+    ">40": 226,
+    "<=5": 18,
+    "11-20": 56,
+    "6-10": 36,
+    "21-40": 80
+  },
+  "difficulty_distribution_new_50": {
+    "hard": 18,
+    "easy": 32
+  },
+  "experiment2_base_reconstruction": {
+    "exp2_used_training_ids_count": 158,
+    "exp2_dev_excluded_ids_count": 18,
+    "exp2_used_ids_match_exp2_manifest": true
+  },
+  "experiment2_vs_experiment3_comparison": {
+    "exp2_train_final_row_count": 316,
+    "exp3_train_final_row_count": 416,
+    "every_exp2_row_still_represented_in_exp3": true,
+    "missing_exp2_row_count": 0,
+    "exp3_extends_exp2_rather_than_rebuilding": true
+  },
+  "all_checks_passed": true,
+  "problems": []
+}

@@ -1,0 +1,20 @@
+{
+  "model": "yuvalbashan7-127d/clearmed-short-explanation-eval-exp2",
+  "INCOMPLETE_RUN": true,
+  "n_test_examples_total": 50,
+  "n_completed": 47,
+  "n_failed_calls": 3,
+  "finetuned_correct": 24,
+  "finetuned_accuracy": 0.5106382978723404,
+  "v7_correct": 32,
+  "v7_accuracy": 0.6808510638297872,
+  "accuracy_delta_percentage_points": -17.02127659574468,
+  "category_counts": {
+    "both_correct": 22,
+    "finetuned_improved": 2,
+    "both_wrong": 13,
+    "finetuned_regressed": 10
+  },
+  "index0_selection_rate": 0.44680851063829785,
+  "accuracy_when_index0_selected": 0.6666666666666666
+}

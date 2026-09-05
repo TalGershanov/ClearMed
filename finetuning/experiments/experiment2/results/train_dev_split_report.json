@@ -1,0 +1,45 @@
+{
+  "seed": 42,
+  "dev_targets_by_bucket": {
+    ">40": 10,
+    "21-40": 3,
+    "11-20": 2,
+    "6-10": 2,
+    "<=5": 1
+  },
+  "dev_shortfalls": {},
+  "n_unique_total": 176,
+  "n_unique_train": 158,
+  "n_unique_dev": 18,
+  "n_train_rows": 316,
+  "n_dev_rows": 36,
+  "dev_source_ids": [
+    "1219",
+    "1226",
+    "1255",
+    "1437",
+    "1459",
+    "1495",
+    "1507",
+    "158",
+    "237",
+    "26",
+    "285",
+    "4553",
+    "489",
+    "62",
+    "6252",
+    "6371",
+    "6541",
+    "6931"
+  ],
+  "train_test_leak": [],
+  "dev_test_leak": [],
+  "train_dev_overlap": [],
+  "outputs": {
+    "train_final": "/Users/yuvalbashan/clearmedupdate/annotation/data/experiment2/train_final.jsonl",
+    "train_manifest": "/Users/yuvalbashan/clearmedupdate/annotation/data/experiment2/train_final_manifest.jsonl",
+    "dev": "/Users/yuvalbashan/clearmedupdate/annotation/data/experiment2/dev.jsonl",
+    "dev_manifest": "/Users/yuvalbashan/clearmedupdate/annotation/data/experiment2/dev_manifest.jsonl"
+  }
+}

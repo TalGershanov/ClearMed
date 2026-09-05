@@ -1,0 +1,19 @@
+{
+  "model": "yuvalbashan7-127d/clearmed-short-explanation-eval-exp2",
+  "response_format": "json_schema (strict, selected_index required, additionalProperties=false, dynamic min/max)",
+  "temperature": "unset (server default, same as original Experiment 2 evaluation)",
+  "n_test_examples": 50,
+  "n_valid_predictions": 50,
+  "n_null_format_failures": 0,
+  "finetuned_correct_strict": 25,
+  "finetuned_accuracy_strict": 0.5,
+  "v7_correct_strict": 35,
+  "v7_accuracy_strict": 0.7,
+  "accuracy_delta_percentage_points": -19.999999999999996,
+  "category_counts": {
+    "both_correct": 24,
+    "finetuned_improved": 1,
+    "finetuned_regressed": 11,
+    "both_wrong": 14
+  }
+}

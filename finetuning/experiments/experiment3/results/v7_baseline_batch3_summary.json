@@ -1,0 +1,59 @@
+{
+  "n_total_examples": 50,
+  "n_valid_predictions": 50,
+  "n_failed_predictions": 0,
+  "status_counts": {
+    "correct": 44,
+    "accepted": 3,
+    "wrong": 3,
+    "no_prediction": 0
+  },
+  "strict_accuracy": 0.88,
+  "acceptable_inclusive_accuracy": 0.94,
+  "by_difficulty": {
+    "easy": {
+      "n": 32,
+      "n_valid": 32,
+      "strict_accuracy": 0.9375,
+      "acceptable_inclusive_accuracy": 0.96875
+    },
+    "hard": {
+      "n": 18,
+      "n_valid": 18,
+      "strict_accuracy": 0.7777777777777778,
+      "acceptable_inclusive_accuracy": 0.8888888888888888
+    }
+  },
+  "by_failure_mode_bucket": {
+    "compound_multi_part": {
+      "n": 7,
+      "n_valid": 7,
+      "strict_accuracy": 0.7142857142857143,
+      "acceptable_inclusive_accuracy": 0.8571428571428571
+    },
+    "generic_vs_functional": {
+      "n": 20,
+      "n_valid": 20,
+      "strict_accuracy": 0.95,
+      "acceptable_inclusive_accuracy": 0.95
+    },
+    "other_hard_case": {
+      "n": 4,
+      "n_valid": 4,
+      "strict_accuracy": 0.75,
+      "acceptable_inclusive_accuracy": 0.75
+    },
+    "rare_failure_mode": {
+      "n": 4,
+      "n_valid": 4,
+      "strict_accuracy": 1.0,
+      "acceptable_inclusive_accuracy": 1.0
+    },
+    "related_fact_vs_explanation": {
+      "n": 15,
+      "n_valid": 15,
+      "strict_accuracy": 0.8666666666666667,
+      "acceptable_inclusive_accuracy": 1.0
+    }
+  }
+}

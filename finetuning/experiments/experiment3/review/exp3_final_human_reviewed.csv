@@ -1,0 +1,51 @@
+source_id,term,human_best_index,exp3_selected_index,exp3_human_review,exp3_judgment_source,v7_selected_index,v7_human_review,exp2_selected_index,exp2_human_review
+6467,Reflux in Infants,0,0,correct,human_best_index,0,correct,0,correct
+5624,Chronic Myeloid Leukemia,9,7,wrong,reused_exp2_review,7,wrong,9,correct
+6807,How to Lower Cholesterol with Diet,12,15,wrong,new_review_2026,14,wrong,23,wrong
+6452,Heart Health Tests,3,23,accepted,new_review_2026,3,correct,3,correct
+4117,Personality Disorders,4,2,accepted,reused_exp2_review,3,accepted,2,accepted
+6681,Guide to Good Posture,2,2,correct,human_best_index,2,correct,2,correct
+424,Suicide,1,0,accepted,reused_exp2_review,1,correct,0,accepted
+5914,Stroke Rehabilitation,4,0,wrong,reused_exp2_review,4,correct,0,wrong
+27,COPD,5,0,accepted,reused_exp2_review,0,accepted,0,accepted
+3894,Understanding Medical Research,3,19,accepted,new_review_2026,3,correct,2,wrong
+1694,Spinal Muscular Atrophy,0,0,correct,human_best_index,0,correct,0,correct
+294,Vaccines,0,0,correct,human_best_index,0,correct,0,correct
+601,Panic Disorder,1,0,wrong,reused_exp2_review,1,correct,0,wrong
+160,Birth Control,0,0,correct,human_best_index,0,correct,0,correct
+1438,Childhood Leukemia,5,3,wrong,new_review_2026,10,accepted,0,wrong
+6907,High Cholesterol in Children and Teens,3,3,correct,human_best_index,3,correct,3,correct
+6967,Eosinophilic Esophagitis,2,0,accepted,new_review_2026,2,correct,2,correct
+1508,High Blood Pressure in Pregnancy,4,2,accepted,new_review_2026,4,correct,10,wrong
+1263,Mammography,1,0,accepted,reused_exp2_review,1,correct,0,accepted
+4119,Heart Surgery,0,43,wrong,new_review_2026,0,correct,0,correct
+108,Smoking,1,19,accepted,new_review_2026,2,accepted,2,accepted
+3924,Knee Replacement,3,16,wrong,new_review_2026,0,accepted,0,accepted
+1,HIV,1,1,correct,human_best_index,1,correct,1,correct
+3623,Emphysema,0,4,accepted,reused_exp2_review,4,accepted,4,accepted
+4921,Kawasaki Disease,4,2,accepted,reused_exp2_review,2,accepted,2,accepted
+381,Raynaud Phenomenon,1,0,accepted,reused_exp2_review,0,accepted,0,accepted
+5562,Delirium,0,0,correct,human_best_index,0,correct,0,correct
+7129,Opioid Use Disorder (OUD) Treatment,8,8,correct,human_best_index,8,correct,12,accepted
+299,Flu,0,0,correct,human_best_index,0,correct,0,correct
+111,Cervical Cancer,0,0,correct,human_best_index,0,correct,0,correct
+1286,Hepatitis C,0,4,wrong,reused_exp2_review,4,wrong,4,wrong
+4157,Inhalants,0,0,correct,human_best_index,0,correct,7,wrong
+379,Radiation Exposure,11,0,wrong,new_review_2026,11,correct,11,correct
+271,Traumatic Brain Injury,0,0,correct,human_best_index,0,correct,0,correct
+4916,Colonoscopy,0,0,correct,human_best_index,0,correct,0,correct
+165,Vision Impairment and Blindness,1,0,wrong,reused_exp2_review,1,correct,0,wrong
+3157,Migraine,1,0,accepted,reused_exp2_review,0,accepted,16,wrong
+217,Down Syndrome,0,0,correct,human_best_index,0,correct,0,correct
+7347,HIV: PrEP and PEP,0,1,wrong,new_review_2026,0,correct,0,correct
+5901,Rh Incompatibility,4,10,correct,reused_exp2_review,10,correct,10,correct
+3176,Evaluating Health Information,65,11,accepted,new_review_2026,5,wrong,0,wrong
+6125,Hyperglycemia,8,8,correct,human_best_index,8,correct,8,correct
+120,Alcohol Use Disorder (AUD),2,5,accepted,new_review_2026,6,accepted,4,wrong
+4959,Drugs and Young People,8,8,correct,human_best_index,8,correct,8,correct
+5632,Histoplasmosis,0,0,correct,human_best_index,0,correct,0,correct
+1502,Living with HIV,7,0,wrong,reused_exp2_review,7,correct,0,wrong
+6469,Healthy Sleep,1,1,correct,human_best_index,1,correct,1,correct
+7607,"Cleaning, Disinfecting, and Sanitizing",12,14,wrong,reused_exp2_review,12,correct,14,wrong
+6785,"HDL: The ""Good"" Cholesterol",7,7,correct,human_best_index,7,correct,7,correct
+1443,Radon,0,0,correct,human_best_index,0,correct,0,correct

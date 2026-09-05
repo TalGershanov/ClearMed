@@ -1,0 +1,19 @@
+{
+  "model": "yuvalbashan7-127d/clearmed-short-explanation-eval",
+  "INCOMPLETE_RUN": true,
+  "note": "Together auto-stopped the dedicated endpoint mid-run due to a negative account balance (\"negative balance limit exceeded\"). Only 24/50 examples got real model predictions before the cutoff; the other 26 never reached the model. All stats below are computed over the 24 completed examples only, not the full 50.",
+  "n_test_examples_total": 50,
+  "n_completed_before_cutoff": 24,
+  "n_incomplete_due_to_billing_stop": 26,
+  "finetuned_correct": 11,
+  "finetuned_accuracy_on_completed": 0.4583333333333333,
+  "v7_correct_on_completed_subset": 17,
+  "v7_accuracy_on_completed_subset": 0.7083333333333334,
+  "accuracy_delta_percentage_points_on_completed": -25.0,
+  "category_counts_on_completed": {
+    "both_correct": 10,
+    "finetuned_improved": 1,
+    "finetuned_regressed": 7,
+    "both_wrong": 6
+  }
+}

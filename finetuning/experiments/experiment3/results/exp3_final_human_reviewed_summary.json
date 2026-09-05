@@ -1,0 +1,59 @@
+{
+  "n_examples": 50,
+  "v7_human_reviewed": {
+    "correct": 36,
+    "accepted": 10,
+    "wrong": 4,
+    "strict_accuracy": 0.72,
+    "acceptable_inclusive_accuracy": 0.92
+  },
+  "experiment2_human_reviewed": {
+    "correct": 26,
+    "accepted": 10,
+    "wrong": 14,
+    "strict_accuracy": 0.52,
+    "acceptable_inclusive_accuracy": 0.72
+  },
+  "experiment3_human_reviewed": {
+    "correct": 22,
+    "accepted": 15,
+    "wrong": 13,
+    "strict_accuracy": 0.44,
+    "acceptable_inclusive_accuracy": 0.74
+  },
+  "experiment3_vs_experiment2": {
+    "genuine_improvements": {
+      "count": 6,
+      "terms": [
+        "Understanding Medical Research",
+        "High Blood Pressure in Pregnancy",
+        "Inhalants",
+        "Migraine",
+        "Evaluating Health Information",
+        "Alcohol Use Disorder (AUD)"
+      ]
+    },
+    "genuine_regressions": {
+      "count": 5,
+      "terms": [
+        "Chronic Myeloid Leukemia",
+        "Heart Surgery",
+        "Knee Replacement",
+        "Radiation Exposure",
+        "HIV: PrEP and PEP"
+      ]
+    },
+    "index_changed_both_acceptable": {
+      "count": 4,
+      "terms": [
+        "Heart Health Tests",
+        "Eosinophilic Esophagitis",
+        "Smoking",
+        "Opioid Use Disorder (OUD) Treatment"
+      ]
+    },
+    "unchanged": {
+      "count": 35
+    }
+  }
+}

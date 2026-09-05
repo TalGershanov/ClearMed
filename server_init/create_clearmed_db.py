@@ -3,6 +3,7 @@ import json
 import logging
 import sqlite3
 import re
+from typing import Optional
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -191,11 +192,10 @@ _SYSTEM_PROMPT = (
 	"Do not include any reasoning or explanation in your response."
 )
 
-def select_short_explanation_ai(full_explanation, term=None, max_words=30):
-	sentences = _clean_candidate_sentences(full_explanation)
-	if not sentences:
-		return None
-
+# Split out from select_short_explanation_ai so the annotation tool (annotation/annotate.py)
+# can get the raw model index for comparison against a human label, without duplicating this
+# API-calling logic or the candidate-splitting logic in _clean_candidate_sentences.
+def _select_short_explanation_index_ai(sentences, term=None):
 	try:
 		client = _get_openai_client()
 		user_prompt = (
@@ -216,16 +216,93 @@ def select_short_explanation_ai(full_explanation, term=None, max_words=30):
 		selected_index = payload.get("selected_index")
 	except Exception:
 		logger.warning("AI short-explanation call failed for term %r; using fallback", term, exc_info=True)
-		return _select_short_explanation_fallback(full_explanation, max_words)
+		return None
 
 	if not isinstance(selected_index, int) or isinstance(selected_index, bool) or not (0 <= selected_index < len(sentences)):
 		logger.warning("AI short-explanation for term %r returned an invalid index (%r); using fallback", term, selected_index)
+		return None
+
+	return selected_index
+
+def select_short_explanation_ai(full_explanation, term=None, max_words=30):
+	sentences = _clean_candidate_sentences(full_explanation)
+	if not sentences:
+		return None
+
+	selected_index = _select_short_explanation_index_ai(sentences, term=term)
+	if selected_index is None:
 		return _select_short_explanation_fallback(full_explanation, max_words)
 
 	# Pulled directly from our own candidate list, never from model-generated text.
 	selected = sentences[selected_index]
 	return _truncate_to_max_words(selected, max_words)
 
+# --- Hebrew translation stage --------------------------------------------
+# Completely independent from V7. This function only ever receives the
+# sentence V7 already selected (a plain string) -- it never sees the
+# candidate list, simple_explanation, or the term name, and it never
+# participates in selection. It has exactly one job: translate the given
+# English sentence to Hebrew, word-for-meaning, without adding, removing, or
+# reinterpreting any medical content. V7's own prompt/logic above this point
+# is untouched by this stage.
+_HEBREW_TRANSLATION_SYSTEM_PROMPT = (
+	"You are translating a patient-friendly medical explanation from English "
+	"to Hebrew.\n\n"
+	"Translate the supplied English text into clear, natural Hebrew suitable "
+	"for a patient.\n\n"
+	"Rules:\n"
+	"1. Preserve the medical meaning exactly.\n"
+	"2. Translate all information contained in the source sentence.\n"
+	"3. Do not add any medical information.\n"
+	"4. Do not remove any medical information.\n"
+	"5. Do not explain, expand, summarize, reinterpret, or medically "
+	"simplify the content beyond what is required for natural Hebrew "
+	"translation.\n"
+	"6. Do not introduce diagnoses, causes, risks, warnings, treatment "
+	"advice, numbers, or medical facts that are not explicitly present in "
+	"the English source.\n"
+	"7. Preserve important medical terminology accurately while using "
+	"natural Hebrew phrasing.\n"
+	"8. Preserve numbers, units, percentages, and other clinical values "
+	"exactly if present.\n"
+	"9. If a term is ambiguous, prefer a faithful translation rather than "
+	"guessing additional medical meaning.\n"
+	"10. Return ONLY the Hebrew translation. Do not include explanations, "
+	"labels, quotation marks, or commentary."
+)
+
+def translate_short_explanation_to_hebrew(short_explanation: str) -> Optional[str]:
+	"""Translates an already V7-selected English short_explanation to Hebrew.
+
+	Never called with anything other than V7's final output; never invokes
+	V7 or any selection logic itself. Returns None (not an English fallback
+	string) on missing input, a failed call, or an empty response -- see the
+	module-level note on why None is the correct fallback for this field."""
+	if not short_explanation:
+		return None
+
+	try:
+		client = _get_openai_client()
+		response = client.chat.completions.create(
+			model=OPENAI_MODEL,
+			messages=[
+				{"role": "system", "content": _HEBREW_TRANSLATION_SYSTEM_PROMPT},
+				{"role": "user", "content": short_explanation},
+			],
+			timeout=30,
+		)
+		translated = response.choices[0].message.content.strip()
+	except Exception:
+		logger.warning("Hebrew translation failed for short_explanation %r; leaving short_explanation_he unset", short_explanation, exc_info=True)
+		return None
+
+	if not translated:
+		logger.warning("Hebrew translation returned empty content for %r; leaving short_explanation_he unset", short_explanation)
+		return None
+
+	return translated
+
+def create_tables(cursor):
 def create_concept_tables(cursor):
 	cursor.execute("""
 		CREATE TABLE IF NOT EXISTS concepts (
@@ -241,6 +318,9 @@ def create_concept_tables(cursor):
 			term_name TEXT NOT NULL,
 			simple_explanation TEXT,
 			short_explanation TEXT,
+			short_explanation_he TEXT,
+			synonyms TEXT,
+			categories TEXT
 			UNIQUE (concept_id, language_code)
 		)
 	""")
@@ -256,6 +336,90 @@ def create_concept_tables(cursor):
 		ON term_aliases (concept_id)
 	""")
 
+def insert_base_terms(cursor, connection, terms):
+	"""Stage 1: insert the raw source data for every term. No V7, no
+	translation -- short_explanation and short_explanation_he are left NULL,
+	to be filled in by the two stages below."""
+	for item in terms:
+		cursor.execute("""
+			INSERT INTO medical_terms (
+				source_id,
+				term,
+				simple_explanation,
+				synonyms,
+				categories
+			)
+			VALUES (?, ?, ?, ?, ?)
+		""", (
+			item.get("source_id"),
+			item.get("term"),
+			item.get("simple_explanation"),
+			json.dumps(item.get("synonyms", []), ensure_ascii=False),
+			json.dumps(item.get("categories", []), ensure_ascii=False)
+		))
+	connection.commit()
+	logger.info("Inserted %d base term row(s)", len(terms))
+
+def populate_short_explanations_with_v7(cursor, connection):
+	"""Stage 2: V7 only. Reads every row's simple_explanation, runs
+	select_short_explanation_ai, and updates short_explanation -- nothing
+	else. Commits after every row so a network/API failure partway through
+	only loses the one in-flight row, not the whole stage."""
+	cursor.execute("SELECT id, term, simple_explanation FROM medical_terms")
+	rows = cursor.fetchall()
+	total = len(rows)
+
+	for index, (row_id, term, simple_explanation) in enumerate(rows, start=1):
+		short_explanation = select_short_explanation_ai(simple_explanation, term=term)
+		cursor.execute("UPDATE medical_terms SET short_explanation = ? WHERE id = ?", (short_explanation, row_id))
+		connection.commit()
+		if index % 50 == 0:
+			logger.info("V7: processed %d/%d terms", index, total)
+
+	logger.info("V7 stage complete: %d/%d rows processed", total, total)
+
+def populate_hebrew_translations(cursor, connection):
+	"""Stage 3: Hebrew translation only. Reads every row's already-finalized
+	short_explanation and updates short_explanation_he -- nothing else, and
+	never calls V7. Used both by the normal bootstrap pipeline and by
+	server_init/retranslate_hebrew.py, so there is exactly one
+	implementation of this loop.
+
+	If translation fails for a row (translate_short_explanation_to_hebrew
+	returns None), that row is skipped entirely: its existing
+	short_explanation_he (NULL or a previously valid translation) is left
+	untouched rather than being overwritten with NULL."""
+	cursor.execute("SELECT id, term, short_explanation FROM medical_terms")
+	rows = cursor.fetchall()
+
+	total = len(rows)
+	updated = 0
+	skipped_no_source = 0
+	failed = 0
+
+	for index, (row_id, term, short_explanation) in enumerate(rows, start=1):
+		if not short_explanation:
+			skipped_no_source += 1
+			continue
+
+		translated = translate_short_explanation_to_hebrew(short_explanation)
+		if translated is None:
+			failed += 1
+			logger.warning("Hebrew translation failed for term %r (id=%s); existing short_explanation_he left untouched", term, row_id)
+			continue
+
+		cursor.execute("UPDATE medical_terms SET short_explanation_he = ? WHERE id = ?", (translated, row_id))
+		connection.commit()
+		updated += 1
+
+		if index % 50 == 0:
+			logger.info("Hebrew: processed %d/%d rows", index, total)
+
+	logger.info(
+		"Hebrew stage complete: %d updated, %d skipped (no source), %d failed (of %d rows)",
+		updated, skipped_no_source, failed, total,
+	)
+	return {"total": total, "updated": updated, "skipped_no_source": skipped_no_source, "failed": failed}
 def insert_concepts(terms):
 	# Writes through DAL.insert_concept() rather than raw sqlite3: the
 	# interface already declares exactly this write primitive (one concept +
@@ -306,6 +470,13 @@ def create_database():
 	# rebuild lands directly in the current concepts/explanations/term_aliases
 	# shape, so no separate migration step is ever needed after this runs.
 	cursor.execute("DROP TABLE IF EXISTS medical_terms")
+	create_tables(cursor)
+	cursor.execute("DELETE FROM medical_terms")
+
+	insert_base_terms(cursor, connection, terms)
+	populate_short_explanations_with_v7(cursor, connection)
+	populate_hebrew_translations(cursor, connection)
+
 	cursor.execute("DROP TABLE IF EXISTS term_aliases")
 	cursor.execute("DROP TABLE IF EXISTS explanations")
 	cursor.execute("DROP TABLE IF EXISTS concepts")

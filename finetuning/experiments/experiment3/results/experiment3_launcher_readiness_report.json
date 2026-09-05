@@ -1,0 +1,69 @@
+{
+  "row_counts": {
+    "n_train_rows": 416,
+    "n_manifest_rows": 416,
+    "n_natural": 208,
+    "n_shuffled": 208
+  },
+  "local_format_check": {
+    "conversational_format_check_excluding_weight": true,
+    "conversational_format_message": "Checks passed",
+    "all_weights_non_negative_numbers": true,
+    "weight_values_present": [
+      0.5,
+      1.0
+    ]
+  },
+  "weight_checks": {
+    "natural_weight_ok": true,
+    "shuffled_weight_ok": true
+  },
+  "test_leakage": {
+    "train": [],
+    "dev": []
+  },
+  "train_dev_overlap": [],
+  "hyperparameter_comparison_vs_experiment2": {
+    "BASE_MODEL": {
+      "experiment2": "Qwen/Qwen3.5-9B",
+      "experiment3": "Qwen/Qwen3.5-9B",
+      "match": true
+    },
+    "N_EPOCHS": {
+      "experiment2": 3,
+      "experiment3": 3,
+      "match": true
+    },
+    "LEARNING_RATE": {
+      "experiment2": 1e-05,
+      "experiment3": 1e-05,
+      "match": true
+    },
+    "LORA_R": {
+      "experiment2": 8,
+      "experiment3": 8,
+      "match": true
+    },
+    "N_EVALS": {
+      "experiment2": 6,
+      "experiment3": 6,
+      "match": true
+    },
+    "UPLOAD_CHECK": {
+      "experiment2": false,
+      "experiment3": false,
+      "match": true
+    }
+  },
+  "experiment3_write_paths": [
+    "/Users/yuvalbashan/clearmedupdate/finetuning/experiments/experiment3/results/finetune_result_together_exp3.json"
+  ],
+  "experiment3_train_upload_path": "/Users/yuvalbashan/clearmedupdate/finetuning/experiments/experiment3/data/experiment3_train_final.jsonl",
+  "write_path_collisions_with_exp1_exp2": [],
+  "validation_file_reused_from_experiment2": {
+    "path": "/Users/yuvalbashan/clearmedupdate/finetuning/experiments/experiment2/data/dev.jsonl",
+    "confirmed_read_only_in_launcher": true
+  },
+  "all_checks_passed": true,
+  "failed_checks": []
+}
