@@ -10,11 +10,6 @@ logger = logging.getLogger("clearmed.dal.db")
 
 
 class SQLiteDatabase(DatabaseInterface):
-	# Single source of truth for the dict shape DatabaseInterface guarantees.
-	# Adding a column (e.g. a future `lang` field) is a one-line change here.
-	_TERM_FIELDS = ("term", "short_explanation", "simple_explanation", "synonyms", "categories")
-	_JSON_FIELDS = {"synonyms", "categories"}
-
 	def _get_connection(self):
 		if not os.path.exists(DB_FILE):
 			logger.error(f"{DB_FILE} not found")
@@ -32,50 +27,16 @@ class SQLiteDatabase(DatabaseInterface):
 			logger.exception(f"Failed to open connection to {DB_FILE}")
 			raise
 
-	def _row_to_dict(self, row):
-		"""Map a fetched row to a dict by column name (via sqlite3.Row),
-		not position, so a reordered SELECT or CREATE TABLE can't silently
-		swap field values."""
-		raw = dict(row)
-		result = {}
-		for field in self._TERM_FIELDS:
-			if field not in raw:
-				result[field] = [] if field in self._JSON_FIELDS else None
-				continue
-			value = raw[field]
-			if field in self._JSON_FIELDS:
-				result[field] = json.loads(value) if value is not None else []
-			else:
-				result[field] = value
-		return result
-
-	def get_term_by_name(self, term: str) -> dict | None:
+	def get_all_aliases(self) -> list[dict]:
 		connection = self._get_connection()
 		try:
 			cursor = connection.cursor()
 			cursor.execute("""
-				SELECT term, short_explanation, simple_explanation, synonyms, categories
-				FROM medical_terms
-				WHERE LOWER(term) = LOWER(?)
-			""", (term,))
-			row = cursor.fetchone()
-			result = self._row_to_dict(row) if row is not None else None
-		finally:
-			connection.close()
-		if result is None:
-			logger.debug(f"No DB entry found for term '{term}'")
-		return result
-
-	def get_all_terms(self) -> list[dict]:
-		connection = self._get_connection()
-		try:
-			cursor = connection.cursor()
-			cursor.execute("""
-				SELECT term, synonyms
-				FROM medical_terms
+				SELECT alias_text, concept_id, language_code
+				FROM term_aliases
 			""")
 			rows = cursor.fetchall()
-			results = [self._row_to_dict(row) for row in rows]
+			results = [dict(row) for row in rows]
 		finally:
 			connection.close()
 		return results
@@ -86,35 +47,44 @@ class SQLiteDatabase(DatabaseInterface):
 		categories: list[str],
 		explanations: list[dict],
 		aliases: list[dict],
+		connection=None,
 	) -> None:
-		connection = self._get_connection()
+		# `connection`: pass an already-open connection to fold this insert
+		# into a caller-managed transaction (e.g. a bulk seed loop that wants
+		# one commit for many concepts instead of one per call); when omitted,
+		# this method opens and commits/closes its own connection as before.
+		owns_connection = connection is None
+		if owns_connection:
+			connection = self._get_connection()
 		try:
-			with connection:
-				connection.execute(
-					"INSERT INTO concepts (concept_id, categories) VALUES (?, ?)",
-					(concept_id, json.dumps(categories, ensure_ascii=False)),
+			connection.execute(
+				"INSERT INTO concepts (concept_id, categories) VALUES (?, ?)",
+				(concept_id, json.dumps(categories, ensure_ascii=False)),
+			)
+			connection.executemany(
+				"""
+				INSERT INTO explanations (
+					concept_id, language_code, term_name,
+					simple_explanation, short_explanation
+				) VALUES (
+					:concept_id, :language_code, :term_name,
+					:simple_explanation, :short_explanation
 				)
-				connection.executemany(
-					"""
-					INSERT INTO explanations (
-						concept_id, language_code, term_name,
-						simple_explanation, short_explanation
-					) VALUES (
-						:concept_id, :language_code, :term_name,
-						:simple_explanation, :short_explanation
-					)
-					""",
-					[{**e, "concept_id": concept_id} for e in explanations],
-				)
-				connection.executemany(
-					"""
-					INSERT INTO term_aliases (alias_text, concept_id, language_code)
-					VALUES (:alias_text, :concept_id, :language_code)
-					""",
-					[{**a, "concept_id": concept_id} for a in aliases],
-				)
+				""",
+				[{**e, "concept_id": concept_id} for e in explanations],
+			)
+			connection.executemany(
+				"""
+				INSERT OR IGNORE INTO term_aliases (alias_text, concept_id, language_code)
+				VALUES (:alias_text, :concept_id, :language_code)
+				""",
+				[{**a, "concept_id": concept_id} for a in aliases],
+			)
+			if owns_connection:
+				connection.commit()
 		finally:
-			connection.close()
+			if owns_connection:
+				connection.close()
 		logger.debug(
 			f"Inserted concept {concept_id!r} with {len(explanations)} explanation(s) "
 			f"and {len(aliases)} alias(es)"

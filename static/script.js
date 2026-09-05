@@ -197,7 +197,7 @@ function renderTermsTable() {
 		const tr = document.createElement("tr");
 		tr.innerHTML = `
 			<td class="col-check"><input type="checkbox" data-term="${escapeHtml(term.main_term)}" ${checked ? "checked" : ""}></td>
-			<td class="term-name">${escapeHtml(term.main_term)}</td>
+			<td class="term-name">${escapeHtml(term.matched_text)}</td>
 			<td>${escapeHtml(term.short_explanation || "")}</td>
 		`;
 		tbody.appendChild(tr);

@@ -106,22 +106,34 @@ class MedicalTermTrie:
 		logger.debug(f"Found {len(found_terms)} term match(es) in text")
 		return found_terms
 
-def load_terms_from_db():
-	# loads all the terms from the DB via the DAL
+def load_aliases_from_db():
+	# loads every term_aliases row (alias_text, concept_id, language_code) from the DB via the DAL
 	dal = get_dal()
-	return dal.get_all_terms()
+	return dal.get_all_aliases()
 
 def build_trie_from_db():
-	# builds a trie from all the medical terms
+	# builds a trie from every alias in the DB. The trie's main_term is
+	# always a concept_id (see medical_term_detector.py's detect_terms_with_
+	# explanations, which looks up DB details by main_term), and each alias
+	# is tokenized the same way its own language's detector tokenizes text
+	# at match time, so a build-time key always has a matching detect-time key.
+	from logic.term_detectors.hebrew import HebrewTermDetector  # deferred: hebrew.py imports this module at load time, so a top-level import here would be circular
+
 	trie = MedicalTermTrie()
-	rows = load_terms_from_db()
+	rows = load_aliases_from_db()
+	skipped = 0
 	for row in rows:
-		term = row["term"]
-		synonyms = row["synonyms"]
-		# insert the main term
-		trie.insert_words(tokenize(term), term)
-		# also insert synonyms
-		for synonym in synonyms:
-			trie.insert_words(tokenize(synonym), term)
-	logger.info(f"Built trie from {len(rows)} term(s) in the database")
+		alias_text = row["alias_text"]
+		concept_id = row["concept_id"]
+		language_code = row["language_code"]
+		if language_code == "en":
+			words = tokenize(alias_text)
+		elif language_code in ("he", "HEB"):
+			words = [token for token, _, _, _ in HebrewTermDetector._tokenize_mixed(alias_text)]
+		else:
+			logger.warning(f"Skipping alias {alias_text!r} (concept_id={concept_id!r}): unrecognized language_code {language_code!r}")
+			skipped += 1
+			continue
+		trie.insert_words(words, concept_id)
+	logger.info(f"Built trie from {len(rows)} alias(es) in the database ({skipped} skipped)")
 	return trie

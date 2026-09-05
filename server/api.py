@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -45,6 +46,7 @@ class AnalyseRequest(BaseModel):
 class TranslateRequest(BaseModel):
 	text: str
 	ui_selection: Dict[str, bool]
+	language_code: str = "en"
 
 # Mounted as its own sub-app (not routes on `app` directly) so the CORS
 # allowlist below applies only to /openmrs/*, not to every route on `app`
@@ -102,8 +104,8 @@ async def analyse_text(request: AnalyseRequest):
 @app.post("/translate")
 @openmrs_app.post("/translate")
 async def translate_text(request: TranslateRequest):
-	logger.info("translating text based on ui selection")
-	translator = ClinicalTranslator("short_explanation", get_term_details)
+	logger.info("translating text based on ui selection (language_code=%s)", request.language_code)
+	translator = ClinicalTranslator("short_explanation", functools.partial(get_term_details, language_code=request.language_code))
 	approved_terms = translator.get_approved_terms(request.ui_selection)
 	terms_with_data = translator.fetch_explanations(approved_terms)
 	final_text = translator.replace_terms(request.text, terms_with_data)
