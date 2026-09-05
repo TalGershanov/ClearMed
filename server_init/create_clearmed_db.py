@@ -1,11 +1,12 @@
 import functools
 import json
 import logging
+import os
 import sqlite3
 import re
-import unicodedata
 from typing import Optional
 
+import deepl
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -23,6 +24,12 @@ OPENAI_MODEL = "gpt-4o-mini"
 @functools.cache
 def _get_openai_client() -> OpenAI:
 	return OpenAI()
+
+DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
+
+@functools.cache
+def _get_deepl_client() -> deepl.Translator:
+	return deepl.Translator(DEEPL_API_KEY)
 
 _QUESTION_PREFIXES = ("what is ", "what are ", "what causes ", "who is ", "who are ", "how is ", "how are ")
 
@@ -243,124 +250,41 @@ def select_short_explanation_ai(full_explanation, term=None, max_words=30):
 # sentence V7 already selected (a plain string) -- it never sees the
 # candidate list, simple_explanation, or the term name, and it never
 # participates in selection. It has exactly one job: translate the given
-# English sentence to Hebrew, word-for-meaning, without adding, removing, or
-# reinterpreting any medical content. V7's own prompt/logic above this point
-# is untouched by this stage.
-_HEBREW_TRANSLATION_SYSTEM_PROMPT = (
-	"You are translating a patient-friendly medical explanation from English "
-	"to Hebrew.\n\n"
-	"Translate the supplied English text into clear, natural Hebrew suitable "
-	"for a patient.\n\n"
-	"Rules:\n"
-	"1. Preserve the medical meaning exactly.\n"
-	"2. Translate all information contained in the source sentence.\n"
-	"3. Do not add any medical information.\n"
-	"4. Do not remove any medical information.\n"
-	"5. Do not explain, expand, summarize, reinterpret, or medically "
-	"simplify the content beyond what is required for natural Hebrew "
-	"translation.\n"
-	"6. Do not introduce diagnoses, causes, risks, warnings, treatment "
-	"advice, numbers, or medical facts that are not explicitly present in "
-	"the English source.\n"
-	"7. Preserve important medical terminology accurately while using "
-	"natural Hebrew phrasing.\n"
-	"8. Preserve numbers, units, percentages, and other clinical values "
-	"exactly if present.\n"
-	"9. If a term is ambiguous, prefer a faithful translation rather than "
-	"guessing additional medical meaning.\n"
-	"10. The translation must be fully Hebrew. Every ordinary word -- every "
-	"noun, verb, and adjective, including medical-sounding ones like "
-	"'sclerosis', 'hernia', 'thrombosis', 'mental', 'causing', or "
-	"'procedure' -- must be rendered in Hebrew. Never leave an English word "
-	"untranslated because it looks technical; that is a translation error, "
-	"not a valid abbreviation. The ONLY text allowed to remain in Latin "
-	"script is a short, standard acronym or initialism that is itself the "
-	"accepted medical shorthand (e.g. 'HIV', 'DNA', 'COPD', 'DVT') -- never "
-	"a spelled-out English word or phrase. When you do keep such an acronym, "
-	"surround it with normal Hebrew spacing and punctuation; never glue it "
-	"directly onto an adjacent Hebrew word with no space.\n"
-	"11. Return ONLY the Hebrew translation. Do not include explanations, "
-	"labels, quotation marks, or commentary."
-)
-
-# Observed in production output: gpt-4o-mini occasionally (a) hallucinates a
-# stray character (or run of characters) from an unrelated script -- Cyrillic,
-# Thai, Arabic, CJK -- spliced directly into an otherwise-correct Hebrew
-# sentence (e.g. "אטрофיה" with Cyrillic р/о, or "להת出生" with a Chinese
-# character glued mid-word), or (b) leaves an ordinary English word untranslated
-# even though _HEBREW_TRANSLATION_SYSTEM_PROMPT rule 10 forbids it (e.g.
-# "thrombosis", "causing", "veins"). Neither is ever valid output: Hebrew
-# medical text only ever legitimately contains Hebrew script,
-# digits/punctuation, and the occasional Latin acronym -- and a real acronym
-# is conventionally written in ALL CAPS (HIV, COPD, DVT...), never lowercase
-# or mixed case, which is what distinguishes it from a spelled-out word here.
-# _translation_defect() lets translate_short_explanation_to_hebrew() detect
-# and retry either failure mode instead of ever writing one to the DB.
-_ALLOWED_NON_HEBREW_SCRIPTS = ("LATIN",)
-_LATIN_WORD_RE = re.compile(r"[A-Za-z]+")
-
-def _translation_defect(text: str) -> Optional[str]:
-	"""Returns a short human-readable reason `text` fails validation, or
-	None if it passes."""
-	for char in text:
-		if not char.isalpha():
-			continue
-		char_name = unicodedata.name(char, "")
-		if "HEBREW" in char_name:
-			continue
-		if any(char_name.startswith(script) for script in _ALLOWED_NON_HEBREW_SCRIPTS):
-			continue
-		return f"disallowed script character {char!r} ({char_name})"
-
-	stray_words = [word for word in _LATIN_WORD_RE.findall(text) if not word.isupper()]
-	if stray_words:
-		return f"stray non-acronym English word(s) {stray_words!r}"
-
-	return None
-
-_MAX_TRANSLATION_ATTEMPTS = 3
+# English sentence to Hebrew via DeepL, a deterministic machine-translation
+# API -- no LLM generation, so no hallucination risk (stray-script characters,
+# untranslated words) to validate against. V7's own prompt/logic above this
+# point is untouched by this stage.
 
 def translate_short_explanation_to_hebrew(short_explanation: str) -> Optional[str]:
-	"""Translates an already V7-selected English short_explanation to Hebrew.
+	"""Translates an already V7-selected English short_explanation to Hebrew
+	using DeepL. Deterministic machine translation -- no LLM generation, no
+	hallucination risk. Never called with anything other than V7's final
+	output; never invokes V7 or any selection logic itself.
 
-	Never called with anything other than V7's final output; never invokes
-	V7 or any selection logic itself. Returns None (not an English fallback
-	string) on missing input, a call that keeps failing/erroring, an empty
-	response, or a response that still fails validation after retrying --
-	see the module-level note on why None is the correct fallback for this
-	field."""
-	if not short_explanation:
+	Returns None (not an English fallback string) on missing input or a
+	failed API call, so the caller (populate_hebrew_translations) leaves
+	the existing short_explanation untouched rather than overwriting it
+	with English text."""
+	if not short_explanation or not short_explanation.strip():
 		return None
 
-	for attempt in range(1, _MAX_TRANSLATION_ATTEMPTS + 1):
-		try:
-			client = _get_openai_client()
-			response = client.chat.completions.create(
-				model=OPENAI_MODEL,
-				messages=[
-					{"role": "system", "content": _HEBREW_TRANSLATION_SYSTEM_PROMPT},
-					{"role": "user", "content": short_explanation},
-				],
-				timeout=30,
-			)
-			translated = response.choices[0].message.content.strip()
-		except Exception:
-			logger.warning("Hebrew translation call failed for %r (attempt %d/%d)", short_explanation, attempt, _MAX_TRANSLATION_ATTEMPTS, exc_info=True)
-			continue
+	try:
+		client = _get_deepl_client()
+		result = client.translate_text(
+			short_explanation,
+			source_lang="EN",
+			target_lang="HE",
+		)
+		translated = result.text.strip()
+	except Exception:
+		logger.warning("DeepL translation failed for %r", short_explanation, exc_info=True)
+		return None
 
-		if not translated:
-			logger.warning("Hebrew translation returned empty content for %r (attempt %d/%d)", short_explanation, attempt, _MAX_TRANSLATION_ATTEMPTS)
-			continue
+	if not translated:
+		logger.warning("DeepL translation returned empty content for %r", short_explanation)
+		return None
 
-		defect = _translation_defect(translated)
-		if defect:
-			logger.warning("Hebrew translation failed validation (%s) for %r (attempt %d/%d): %r", defect, short_explanation, attempt, _MAX_TRANSLATION_ATTEMPTS, translated)
-			continue
-
-		return translated
-
-	logger.warning("Hebrew translation failed after %d attempt(s) for short_explanation %r", _MAX_TRANSLATION_ATTEMPTS, short_explanation)
-	return None
+	return translated
 
 def populate_hebrew_translations():
 	"""Replaces the placeholder short_explanation on every existing 'he'
@@ -418,6 +342,17 @@ def populate_hebrew_translations():
 		updated, skipped_no_source, failed, total,
 	)
 	return {"total": total, "updated": updated, "skipped_no_source": skipped_no_source, "failed": failed}
+
+def build_database():
+	"""Builds the full database in one straight line: English concepts,
+	then Hebrew terms, then Hebrew translations. The single definition of
+	this sequence -- bootstrap.py and this module's own __main__ both call
+	it instead of each writing the three steps out separately."""
+	from populate_hebrew_terms import populate_hebrew_terms
+
+	create_database()
+	populate_hebrew_terms()
+	populate_hebrew_translations()
 
 def create_concept_tables(cursor):
 	cursor.execute("""
@@ -535,19 +470,3 @@ def create_database():
 				f"Smoke check failed: {field} mismatch ({fetched[field]!r} != {expected!r})"
 			)
 	print(f"Smoke check passed: DAL read back concept {first_term['source_id']!r} correctly")
-
-if __name__ == "__main__":
-	from log_config import setup_logging
-	from populate_hebrew_terms import populate_hebrew_terms
-	setup_logging()
-	create_database()
-	# create_database() drops and rebuilds concepts/explanations/term_aliases
-	# from the English JSON alone, which would silently wipe any existing
-	# Hebrew data if this script is run standalone instead of through
-	# bootstrap.py -- repopulate it here so that can't happen.
-	populate_hebrew_terms()
-	# Overwrite each 'he' row's placeholder short_explanation (copied
-	# verbatim from English at scrape time) with a real translation -- must
-	# run after populate_hebrew_terms(), since it depends on the 'he' rows
-	# that step creates.
-	populate_hebrew_translations()

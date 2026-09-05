@@ -34,8 +34,8 @@ import create_clearmed_db as cdb
 
 
 if __name__ == "__main__":
-	if not os.environ.get("OPENAI_API_KEY"):
-		print("OPENAI_API_KEY is not set in the environment. Stopping.")
+	if not os.environ.get("DEEPL_API_KEY"):
+		print("DEEPL_API_KEY is not set in the environment. Stopping.")
 		raise SystemExit(1)
 	from log_config import setup_logging
 	setup_logging()
