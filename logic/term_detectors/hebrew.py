@@ -18,6 +18,16 @@ def is_hebrew_char(ch: str) -> bool:
 	boundary is defined once, not duplicated."""
 	return "֐" <= ch <= "׿"
 
+
+def detect_language_code(text: str) -> str:
+	"""Script-sniffs `text` to pick which DetectorFactory language_code to use:
+	"he" if any character is in the Hebrew Unicode block, else "en". Mixed
+	Hebrew/English text also resolves to "he", since HebrewTermDetector already
+	tokenizes both scripts in one pass, while EnglishTermDetector cannot match
+	Hebrew at all -- so "he" is the strictly more capable choice whenever any
+	Hebrew is present."""
+	return "he" if any(is_hebrew_char(ch) for ch in text) else "en"
+
 # common Hebrew prefix particles, longest first so "וכש" isn't preempted by
 # its leading "ו"
 _HEBREW_PREFIXES = ("וכש", "מ", "ש", "ה", "ב", "ל", "ו")

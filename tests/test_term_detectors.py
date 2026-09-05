@@ -2,6 +2,7 @@ import pytest
 
 from logic.medical_term_trie import MedicalTermTrie, tokenize
 from logic.term_detectors import EnglishTermDetector, HebrewTermDetector
+from logic.term_detectors.hebrew import detect_language_code
 
 
 @pytest.fixture
@@ -63,3 +64,20 @@ def test_all_offsets_are_internally_consistent(trie):
 	assert results
 	for match in results:
 		assert text[match["start"]:match["end"]] == match["matched_text"]
+
+
+def test_detect_language_code_pure_hebrew():
+	assert detect_language_code("כאב בטן") == "he"
+
+
+def test_detect_language_code_pure_english():
+	assert detect_language_code("abdominal pain") == "en"
+
+
+def test_detect_language_code_mixed_hebrew_english():
+	assert detect_language_code("סבלה מ-Abdominal Pain") == "he"
+
+
+def test_detect_language_code_no_letters_falls_back_to_en():
+	assert detect_language_code("") == "en"
+	assert detect_language_code("123, !?") == "en"
