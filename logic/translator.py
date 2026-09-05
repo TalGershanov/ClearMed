@@ -1,21 +1,21 @@
 import logging
 
+import anthropic
 from dotenv import load_dotenv
-from openai import OpenAI
 
 logger = logging.getLogger("clearmed.translator")
 
 load_dotenv()
 
-OPENAI_MODEL = "gpt-4o-mini"
+CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
-_openai_client = None
+_claude_client = None
 
-def _get_openai_client():
-	global _openai_client
-	if _openai_client is None:
-		_openai_client = OpenAI()
-	return _openai_client
+def _get_claude_client():
+	global _claude_client
+	if _claude_client is None:
+		_claude_client = anthropic.Anthropic()
+	return _claude_client
 
 # This is the ONLY place in the runtime pipeline that generates new wording.
 # It must never introduce medical facts, diagnoses, warnings, or treatment
@@ -25,71 +25,45 @@ def _get_openai_client():
 # the sole source of which explanation text is "approved" for each term; this
 # prompt only controls how that already-approved wording gets woven into the
 # patient-facing paragraph.
-_REWRITE_SYSTEM_PROMPT = (
-	"You rewrite a medical text so a patient can understand it, using ONLY the "
-	"information given to you. You are a language rewriter, not a medical "
-	"knowledge source.\n\n"
-	"You will receive the original medical text and explanation_map: a list of "
-	"medical terms with an approved explanation for each term (these "
-	"explanations were selected from a verified medical source; do not doubt "
-	"or correct them).\n\n"
-	"*** CRITICAL RULE -- READ THIS FIRST ***\n"
-	"Treat explanation_map as the complete and exclusive set of medical "
-	"knowledge you are authorized to add to the text. Do not use your own "
-	"medical knowledge to explain, define, expand, interpret, or simplify any "
-	"medical term or concept that is absent from explanation_map. This applies "
-	"equally to two situations, and you must treat them identically:\n"
-	"  (a) a term that appears in the text and even one that the detection "
-	"system found, but that is NOT included in explanation_map for this "
-	"request;\n"
-	"  (b) a medical term or concept in the text that was never detected at "
-	"all.\n"
-	"An unselected term must be treated exactly like an unknown term: preserve "
-	"it rather than explain it. You are never permitted to fill either gap "
-	"with your own medical knowledge, no matter how well-known, simple, or "
-	"obviously correct that knowledge is. If explanation_map does not contain "
-	"a term, that term is off-limits to you -- leave its wording exactly as it "
-	"appears in the original text (correcting only surrounding grammar strictly "
-	"required to keep the sentence readable when an approved explanation is "
-	"inserted elsewhere in the same sentence -- never as a reason to touch the "
-	"unauthorized term's own wording).\n\n"
-	"Rules:\n"
-	"1. Preserve the original medical meaning of the text. Do not change what "
-	"the text is saying.\n"
-	"2. For each term that IS in explanation_map, use ONLY that term's supplied "
-	"explanation as your source of additional medical information about it. "
-	"Integrate it naturally into the sentence or paragraph it belongs to -- do "
-	"not mechanically insert 'term (explanation)'. Rephrase the surrounding "
-	"sentence so the explanation reads as part of the prose.\n"
-	"3. Do not add any medical fact, diagnosis, warning, treatment "
-	"recommendation, or advice that is not already present in the original "
-	"text or in one of the supplied explanations.\n"
-	"4. Do not remove clinically meaningful information from the original text.\n"
-	"5. Do not invent numbers, causes, risks, instructions, or outcomes that "
-	"are not stated in the original text or the supplied explanations.\n"
-	"6. Do not simplify, translate, paraphrase, or lightly reword ANY medical "
-	"term, symptom name, lab value name, or drug name that is not a key in "
-	"explanation_map -- not even into a well-known plain-language equivalent "
-	"(e.g. do not turn 'polyuria' into 'frequent urination' unless polyuria "
-	"itself is a key in explanation_map with that as its supplied "
-	"explanation). Copy that term's exact original wording.\n\n"
-	"Example of CORRECT behavior -- original: \"Your A1C is high.\" "
-	"explanation_map = {\"A1C\": \"The A1C test measures your average blood "
-	"sugar level over the past 2 or 3 months.\"}. Good rewrite: \"Your A1C, a "
-	"test that shows your average blood sugar level over the past 2 or 3 "
-	"months, is high.\" This integrates the explanation naturally and adds "
-	"nothing beyond it.\n\n"
-	"Example of INCORRECT behavior -- original: \"...polyuria, polydipsia, and "
-	"HbA1c returned at 9.2%, ... started on Metformin.\" explanation_map only "
-	"contains \"Blood Glucose\". It would be WRONG to rewrite 'polyuria' as "
-	"'frequent urination', WRONG to rewrite 'polydipsia' as 'excessive "
-	"thirst', WRONG to explain what HbA1c measures, and WRONG to explain what "
-	"Metformin is -- none of those terms are in explanation_map, so all four "
-	"must be copied through with their original wording unchanged, even though "
-	"you know what they mean.\n\n"
-	"Output ONLY the rewritten text. Do not include any preamble, labels, "
-	"explanation of your changes, or surrounding quotes."
-)
+_REWRITE_SYSTEM_PROMPT = """<role>
+You are a clinical language rewriter. You rewrite medical text so a patient can understand it, using ONLY the information given to you. You are not a medical knowledge source.
+</role>
+
+<context>
+You will receive the original medical text and explanation_map: approved explanations for specific medical terms, already selected from a verified medical source. For Hebrew text, these explanations were produced by a literal machine-translation engine (DeepL) -- their medical content is correct and final, but the Hebrew phrasing may not yet fit the grammar of the sentence around it.
+</context>
+
+<critical_rule name="strict_whitelist">
+Treat explanation_map as the complete and exclusive boundary of medical knowledge you are authorized to add to the text. Never use your own medical knowledge to explain, define, expand, interpret, or simplify a medical term or concept absent from explanation_map -- whether it was detected but not approved, or never detected at all. An unlisted term must be left EXACTLY as it appears in the original text: do not translate it, simplify it, or reword it into a plain-language equivalent, no matter how well-known or obviously correct that knowledge is. You may adjust surrounding grammar only as strictly required to keep a sentence readable when an approved explanation is inserted elsewhere in it -- never as a reason to touch an unlisted term's own wording.
+</critical_rule>
+
+<critical_rule name="grammatical_smoothing">
+Every explanation in explanation_map is a literal translation and may read stiffly in context. Weave each one naturally into the surrounding prose -- adjusting Hebrew prepositions (ב, ל, מ, ש) and inflection so the sentence reads as fluent, native Hebrew -- instead of mechanically inserting "term (explanation)". This smoothing may change ONLY grammar and phrasing. It must never alter, soften, sharpen, or add to the explanation's clinical meaning.
+</critical_rule>
+
+<rules>
+1. Preserve the original medical meaning of the text; do not change what it says.
+2. Do not add any medical fact, diagnosis, warning, treatment recommendation, or advice beyond what is already in the original text or an approved explanation.
+3. Do not remove clinically meaningful information from the original text.
+4. Do not invent numbers, causes, risks, instructions, or outcomes not stated in the original text or the approved explanations.
+</rules>
+
+<examples>
+<example type="correct">
+Original: "Your A1C is high."
+explanation_map: {"A1C": "The A1C test measures your average blood sugar level over the past 2 or 3 months."}
+Rewrite: "Your A1C, a test that shows your average blood sugar level over the past 2 or 3 months, is high."
+</example>
+<example type="incorrect">
+Original: "...polyuria, polydipsia, and HbA1c returned at 9.2%, ... started on Metformin."
+explanation_map only contains "Blood Glucose".
+It would be WRONG to rewrite polyuria as "frequent urination", polydipsia as "excessive thirst", or to explain HbA1c or Metformin -- none of those terms are in explanation_map, so all four must be copied through with their original wording unchanged.
+</example>
+</examples>
+
+<output_format>
+Output ONLY the rewritten text. No preamble, labels, explanation of your changes, or surrounding quotes.
+</output_format>"""
 
 def _build_rewrite_user_prompt(original_text, explanation_map):
 	lines = [
@@ -105,7 +79,7 @@ def _build_rewrite_user_prompt(original_text, explanation_map):
 	lines.append("Rewrite the text now, following all system instructions exactly.")
 	return "\n".join(lines)
 
-def simplify_text_with_openai(original_text: str, explanation_map: dict) -> str:
+def simplify_text_with_claude(original_text: str, explanation_map: dict) -> str:
 	"""Rewrites original_text into patient-friendly language, naturally integrating
 	the approved explanation for each term in explanation_map ({term: explanation}).
 
@@ -118,22 +92,36 @@ def simplify_text_with_openai(original_text: str, explanation_map: dict) -> str:
 		return original_text
 
 	try:
-		client = _get_openai_client()
-		response = client.chat.completions.create(
-			model=OPENAI_MODEL,
+		client = _get_claude_client()
+		response = client.messages.create(
+			model=CLAUDE_MODEL,
+			max_tokens=4096,
+			# temperature is no longer a typed kwarg on this SDK version's
+			# messages.create(), but the API still honors it -- extra_body is
+			# the SDK's documented passthrough for such fields. 0 makes token
+			# selection deterministic (always the highest-probability token);
+			# it does not by itself enforce the whitelist rule -- that's the
+			# system prompt's job (see _REWRITE_SYSTEM_PROMPT).
+			extra_body={"temperature": 0},
+			system=[
+				{
+					"type": "text",
+					"text": _REWRITE_SYSTEM_PROMPT,
+					"cache_control": {"type": "ephemeral"},
+				}
+			],
 			messages=[
-				{"role": "system", "content": _REWRITE_SYSTEM_PROMPT},
 				{"role": "user", "content": _build_rewrite_user_prompt(original_text, explanation_map)},
 			],
 			timeout=30,
 		)
-		rewritten = response.choices[0].message.content.strip()
+		rewritten = response.content[0].text.strip()
 	except Exception:
-		logger.exception("OpenAI rewrite call failed; returning original text unchanged.")
+		logger.exception("Claude rewrite call failed; returning original text unchanged.")
 		return original_text
 
 	if not rewritten:
-		logger.warning("OpenAI rewrite returned empty content; returning original text unchanged.")
+		logger.warning("Claude rewrite returned empty content; returning original text unchanged.")
 		return original_text
 
 	logger.info("Rewrote text using %d approved explanation(s).", len(explanation_map))
@@ -143,8 +131,8 @@ def build_explanation_map(detected_terms, ui_selection, explanation_field):
 	"""Filter detected_terms down to the user-approved ones with a usable
 	explanation_field value, deduplicated by term_name in first-seen order --
 	same approval/dedup semantics as apply_translations below, but returning
-	{term_name: explanation} for simplify_text_with_openai instead of
-	splicing spans: no position/offset handling needed since the OpenAI
+	{term_name: explanation} for simplify_text_with_claude instead of
+	splicing spans: no position/offset handling needed since the Claude
 	rewrite integrates explanations by name in prose, not by text offset."""
 	explanation_map = {}
 	explained_terms_list = []

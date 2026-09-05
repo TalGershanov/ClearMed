@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from logic.translator import apply_translations, build_explanation_map, simplify_text_with_openai
+from logic.translator import apply_translations, build_explanation_map, simplify_text_with_claude
 
 
 def _term(main_term, term_name, start, end, **explanations):
@@ -84,30 +84,30 @@ def test_build_explanation_map_skips_missing_explanation():
 	assert explained == []
 
 
-def _mock_openai_response(text):
+def _mock_claude_response(text):
 	response = MagicMock()
-	response.choices = [MagicMock(message=MagicMock(content=text))]
+	response.content = [MagicMock(text=text)]
 	return response
 
 
-def test_simplify_text_with_openai_returns_rewritten_text_on_success():
+def test_simplify_text_with_claude_returns_rewritten_text_on_success():
 	mock_client = MagicMock()
-	mock_client.chat.completions.create.return_value = _mock_openai_response("Rewritten patient-friendly text.")
-	with patch("logic.translator._get_openai_client", return_value=mock_client):
-		result = simplify_text_with_openai("Original text.", {"term": "explanation"})
+	mock_client.messages.create.return_value = _mock_claude_response("Rewritten patient-friendly text.")
+	with patch("logic.translator._get_claude_client", return_value=mock_client):
+		result = simplify_text_with_claude("Original text.", {"term": "explanation"})
 	assert result == "Rewritten patient-friendly text."
 
 
-def test_simplify_text_with_openai_falls_back_to_original_on_failure():
+def test_simplify_text_with_claude_falls_back_to_original_on_failure():
 	mock_client = MagicMock()
-	mock_client.chat.completions.create.side_effect = RuntimeError("API down")
-	with patch("logic.translator._get_openai_client", return_value=mock_client):
-		result = simplify_text_with_openai("Original text.", {"term": "explanation"})
+	mock_client.messages.create.side_effect = RuntimeError("API down")
+	with patch("logic.translator._get_claude_client", return_value=mock_client):
+		result = simplify_text_with_claude("Original text.", {"term": "explanation"})
 	assert result == "Original text."
 
 
-def test_simplify_text_with_openai_skips_api_call_when_no_explanations():
-	with patch("logic.translator._get_openai_client") as mock_get_client:
-		result = simplify_text_with_openai("Original text.", {})
+def test_simplify_text_with_claude_skips_api_call_when_no_explanations():
+	with patch("logic.translator._get_claude_client") as mock_get_client:
+		result = simplify_text_with_claude("Original text.", {})
 	assert result == "Original text."
 	mock_get_client.assert_not_called()
