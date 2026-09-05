@@ -36,6 +36,7 @@ def detect_terms_with_explanations(text, language_code="en"):
 			results.append({
 				"matched_text": detected["matched_text"],
 				"main_term": detected["main_term"],
+				"term_name": details["term_name"],
 				"start": detected["start"],
 				"end": detected["end"],
 				"short_explanation": details["short_explanation"],

@@ -1,5 +1,4 @@
 import asyncio
-import functools
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -7,10 +6,10 @@ from datetime import datetime, timezone
 
 from google.genai import errors as genai_errors
 from log_config import setup_logging
-from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations, get_term_details, init_trie
+from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations, init_trie
 from logic.ocr import extract_text_from_image
 from logic.term_detectors.hebrew import detect_language_code
-from logic.translator import ClinicalTranslator
+from logic.translator import apply_translations
 from openmrs.client import OpenMRSAPIError, close_openmrs_client, get_openmrs_client
 from openmrs.config import OPENMRS_NOTE_CONCEPT_UUID, OPENMRS_ORIGIN
 from openmrs.schemas import (
@@ -112,11 +111,12 @@ async def translate_text(request: TranslateRequest):
 	# scraper never translated it -- see server_init/hebrew_terms.py); the
 	# genuine scraped Hebrew explanation lives in simple_explanation instead.
 	explanation_field = "simple_explanation" if effective_language_code == "he" else "short_explanation"
-	translator = ClinicalTranslator(explanation_field, functools.partial(get_term_details, language_code=effective_language_code))
-	approved_terms = translator.get_approved_terms(request.ui_selection)
-	terms_with_data = translator.fetch_explanations(approved_terms)
-	final_text = translator.replace_terms(request.text, terms_with_data)
-	return {"translated_text": final_text, "explained_terms_list": list(terms_with_data.keys())}
+	try:
+		detected_terms = detect_terms_with_explanations(request.text, effective_language_code)
+	except ValueError as e:
+		raise HTTPException(status_code=400, detail=str(e))
+	final_text, explained_terms_list = apply_translations(request.text, detected_terms, request.ui_selection, explanation_field)
+	return {"translated_text": final_text, "explained_terms_list": explained_terms_list}
 
 async def _call_openmrs(action):
 	"""Runs `action(client)` against the shared OpenMRS client, mapping client
