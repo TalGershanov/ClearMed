@@ -107,10 +107,10 @@ async def analyse_text(request: AnalyseRequest):
 async def translate_text(request: TranslateRequest):
 	effective_language_code = detect_language_code(request.text)
 	logger.info("translating text based on ui selection (language_code=%s)", effective_language_code)
-	# short_explanation is English-only even for Hebrew concepts (the infomed
-	# scraper never translated it -- see server_init/hebrew_terms.py); the
-	# genuine scraped Hebrew explanation lives in simple_explanation instead.
-	explanation_field = "simple_explanation" if effective_language_code == "he" else "short_explanation"
+	# short_explanation is now AI-translated to Hebrew for 'he' concepts too
+	# (see server_init/create_clearmed_db.py::populate_hebrew_translations),
+	# so the same field works for every language.
+	explanation_field = "short_explanation"
 	try:
 		detected_terms = detect_terms_with_explanations(request.text, effective_language_code)
 	except ValueError as e:
