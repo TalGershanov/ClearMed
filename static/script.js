@@ -175,6 +175,7 @@ btnIdentify.addEventListener("click", async () => {
 		const data = await res.json();
 		state.detectedTerms = data.detected_terms || [];
 		state.uiSelection = data.ui_selection || {};
+		state.languageCode = data.language_code || "en";
 		renderTermsTable();
 		goToStep(2);
 	} catch (err) {
@@ -194,11 +195,12 @@ function renderTermsTable() {
 
 	state.detectedTerms.forEach((term) => {
 		const checked = state.uiSelection[term.main_term] !== false;
+		const explanation = state.languageCode === "he" ? term.simple_explanation : term.short_explanation;
 		const tr = document.createElement("tr");
 		tr.innerHTML = `
 			<td class="col-check"><input type="checkbox" data-term="${escapeHtml(term.main_term)}" ${checked ? "checked" : ""}></td>
 			<td class="term-name">${escapeHtml(term.matched_text)}</td>
-			<td>${escapeHtml(term.short_explanation || "")}</td>
+			<td dir="auto">${escapeHtml(explanation || "")}</td>
 		`;
 		tbody.appendChild(tr);
 	});
@@ -254,6 +256,7 @@ function renderSummary() {
 	box.innerHTML = "";
 	sentencesOf(state.translatedText).forEach((sentence) => {
 		const p = document.createElement("p");
+		p.setAttribute("dir", "auto");
 		p.textContent = sentence;
 		box.appendChild(p);
 	});
@@ -305,6 +308,7 @@ function renderExportDoc() {
 	explanation.innerHTML = "";
 	sentencesOf(state.translatedText).forEach((sentence) => {
 		const p = document.createElement("p");
+		p.setAttribute("dir", "auto");
 		p.textContent = sentence;
 		explanation.appendChild(p);
 	});

@@ -101,14 +101,18 @@ async def analyse_text(request: AnalyseRequest):
 	except ValueError as e:
 		raise HTTPException(status_code=400, detail=str(e))
 	ui_selection = build_ui_selection(result)
-	return {"detected_terms": result, "ui_selection": ui_selection}
+	return {"detected_terms": result, "ui_selection": ui_selection, "language_code": effective_language_code}
 
 @app.post("/translate")
 @openmrs_app.post("/translate")
 async def translate_text(request: TranslateRequest):
 	effective_language_code = detect_language_code(request.text)
 	logger.info("translating text based on ui selection (language_code=%s)", effective_language_code)
-	translator = ClinicalTranslator("short_explanation", functools.partial(get_term_details, language_code=effective_language_code))
+	# short_explanation is English-only even for Hebrew concepts (the infomed
+	# scraper never translated it -- see server_init/hebrew_terms.py); the
+	# genuine scraped Hebrew explanation lives in simple_explanation instead.
+	explanation_field = "simple_explanation" if effective_language_code == "he" else "short_explanation"
+	translator = ClinicalTranslator(explanation_field, functools.partial(get_term_details, language_code=effective_language_code))
 	approved_terms = translator.get_approved_terms(request.ui_selection)
 	terms_with_data = translator.fetch_explanations(approved_terms)
 	final_text = translator.replace_terms(request.text, terms_with_data)

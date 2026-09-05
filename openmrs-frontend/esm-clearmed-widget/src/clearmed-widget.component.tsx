@@ -160,13 +160,13 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
 
         <div className={styles.docExplanation}>
           {sentencesOf(editedText).map((sentence, i) => (
-            <p key={i}>{sentence}</p>
+            <p key={i} dir="auto">{sentence}</p>
           ))}
         </div>
 
         <div className={styles.docOriginal}>
           <h4>Original Notes</h4>
-          <pre>{combinedText}</pre>
+          <pre dir="auto">{combinedText}</pre>
         </div>
 
         <div className={styles.docTerms}>
@@ -293,7 +293,7 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
             ) : (
               <div className={styles.docExplanation}>
                 {sentencesOf(editedText).map((sentence, i) => (
-                  <p key={i}>{sentence}</p>
+                  <p key={i} dir="auto">{sentence}</p>
                 ))}
               </div>
             )}
@@ -302,7 +302,7 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
           <div className={styles.card}>
             <div className={styles.cardTitle}>Original Notes</div>
             <div className={styles.cardAccent} />
-            <pre className={styles.originalBox}>{combinedText}</pre>
+            <pre className={styles.originalBox} dir="auto">{combinedText}</pre>
           </div>
 
           <div className={styles.card}>

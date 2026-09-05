@@ -15,8 +15,12 @@ def upsert_hebrew_explanation(connection, concept_id, short_explanation, hebrew_
 	with connection:
 		connection.execute(
 			"""
-			INSERT OR IGNORE INTO explanations (concept_id, language_code, term_name, simple_explanation, short_explanation)
+			INSERT INTO explanations (concept_id, language_code, term_name, simple_explanation, short_explanation)
 			VALUES (?, ?, ?, ?, ?)
+			ON CONFLICT(concept_id, language_code) DO UPDATE SET
+				term_name = excluded.term_name,
+				simple_explanation = excluded.simple_explanation,
+				short_explanation = excluded.short_explanation
 			""",
 			(
 				concept_id,

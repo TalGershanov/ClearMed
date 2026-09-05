@@ -5,7 +5,7 @@ import sqlite3
 import time
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 import bootstrap
 _ = bootstrap  # side-effect import: puts the repo root on sys.path (see server_init/bootstrap.py)
@@ -23,6 +23,11 @@ REQUEST_DELAY_SECONDS = 0.3
 
 # Hand-edit to e.g. 20 for a pilot run; None runs against every URL in the sitemap.
 LIMIT = None
+
+# Hand-edit to True to re-scrape concepts that already have Hebrew data (e.g.
+# after changing _extract_body_text) -- otherwise already_scraped() skips
+# them. Revert to False afterward so normal runs stay incremental-only.
+FORCE_RESCRAPE = False
 
 
 def fetch_sitemap_urls(client, sitemap_url, url_prefix):
@@ -62,8 +67,32 @@ def _extract_body_text(soup):
 	if container is None:
 		return ""
 	for div in container.select("div.description"):
-		if div.get("id") != "description":
-			return div.get_text(strip=True)
+		if div.get("id") == "description":
+			continue
+		# The page's own template only marks off the intro section
+		# structurally: an inserted photo separates it from every later
+		# section (causes, types, treatment, etc.) -- there's no heading or
+		# other marker. Walk every descendant in document order (not just
+		# direct children -- some page templates nest the intro text and the
+		# photo inside one shared wrapper element, so stopping at whichever
+		# *child* contains an image would discard real intro text along with
+		# it) and stop at the first actual <img>/<picture>/<source> node,
+		# keeping only the text before it. A minority of older,
+		# encyclopedia-sourced pages have no image anywhere in this div (bare
+		# <br>-separated text) -- for those there's no safe place to cut, so
+		# the full text is kept, unchanged from before.
+		pieces = []
+		for node in div.descendants:
+			if isinstance(node, Tag):
+				if node.name in ("img", "picture", "source"):
+					break
+				continue
+			text = node.strip()
+			if text:
+				pieces.append(text)
+		if pieces:
+			return " ".join(pieces)
+		return div.get_text(" ", strip=True)
 	return ""
 
 
@@ -200,7 +229,7 @@ def _scrape_pages(connection, client, urls, parse_page, resolve_concept):
 			time.sleep(REQUEST_DELAY_SECONDS)
 			continue
 
-		if not already_scraped(connection, concept_id):
+		if FORCE_RESCRAPE or not already_scraped(connection, concept_id):
 			collected.append({
 				"concept_id": concept_id,
 				"hebrew_names": parsed["hebrew_names"],
@@ -283,18 +312,24 @@ def scrape_to_json():
 
 	connection.close()
 
-	terms = _load_existing_terms()
-	existing_concept_ids = {t["concept_id"] for t in terms}
-	added = 0
+	terms_by_concept_id = {t["concept_id"]: t for t in _load_existing_terms()}
+	added = updated = 0
 	for term in new_terms:
-		if term["concept_id"] not in existing_concept_ids:
-			terms.append(term)
-			existing_concept_ids.add(term["concept_id"])
+		if term["concept_id"] in terms_by_concept_id:
+			updated += 1
+		else:
 			added += 1
+		# A freshly-collected term always wins over whatever's already on disk
+		# for the same concept_id -- during a normal (non-forced) run this
+		# never actually overwrites anything, since already_scraped() already
+		# keeps already-done concepts out of new_terms; it only matters when
+		# FORCE_RESCRAPE deliberately re-collects them.
+		terms_by_concept_id[term["concept_id"]] = term
 
+	terms = list(terms_by_concept_id.values())
 	with open(HEBREW_JSON_FILE, "w", encoding="utf-8") as f:
 		json.dump({"terms": terms}, f, ensure_ascii=False, indent=2)
-	print(f"Added {added} new term(s); {HEBREW_JSON_FILE} now has {len(terms)} total")
+	print(f"Added {added} new term(s), updated {updated}; {HEBREW_JSON_FILE} now has {len(terms)} total")
 
 
 if __name__ == "__main__":
