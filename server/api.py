@@ -9,6 +9,7 @@ from google.genai import errors as genai_errors
 from log_config import setup_logging
 from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations, get_term_details, init_trie
 from logic.ocr import extract_text_from_image
+from logic.term_detectors.hebrew import detect_language_code
 from logic.translator import ClinicalTranslator
 from openmrs.client import OpenMRSAPIError, close_openmrs_client, get_openmrs_client
 from openmrs.config import OPENMRS_NOTE_CONCEPT_UUID, OPENMRS_ORIGIN
@@ -93,9 +94,10 @@ async def ocr_image(image: UploadFile = File(...)):
 @app.post("/analyse")
 @openmrs_app.post("/analyse")
 async def analyse_text(request: AnalyseRequest):
-	logger.info("analysing text for medical terms (language_code=%s)", request.language_code)
+	effective_language_code = detect_language_code(request.text)
+	logger.info("analysing text for medical terms (language_code=%s)", effective_language_code)
 	try:
-		result = detect_terms_with_explanations(request.text, request.language_code)
+		result = detect_terms_with_explanations(request.text, effective_language_code)
 	except ValueError as e:
 		raise HTTPException(status_code=400, detail=str(e))
 	ui_selection = build_ui_selection(result)
@@ -104,8 +106,9 @@ async def analyse_text(request: AnalyseRequest):
 @app.post("/translate")
 @openmrs_app.post("/translate")
 async def translate_text(request: TranslateRequest):
-	logger.info("translating text based on ui selection (language_code=%s)", request.language_code)
-	translator = ClinicalTranslator("short_explanation", functools.partial(get_term_details, language_code=request.language_code))
+	effective_language_code = detect_language_code(request.text)
+	logger.info("translating text based on ui selection (language_code=%s)", effective_language_code)
+	translator = ClinicalTranslator("short_explanation", functools.partial(get_term_details, language_code=effective_language_code))
 	approved_terms = translator.get_approved_terms(request.ui_selection)
 	terms_with_data = translator.fetch_explanations(approved_terms)
 	final_text = translator.replace_terms(request.text, terms_with_data)
