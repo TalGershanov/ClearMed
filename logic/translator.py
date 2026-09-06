@@ -63,7 +63,9 @@ It would be WRONG to rewrite polyuria as "frequent urination", polydipsia as "ex
 
 <output_format>
 Output ONLY the rewritten text. No preamble, labels, explanation of your changes, or surrounding quotes.
-</output_format>"""
+</output_format>
+
+preserve every word you cannot delete any words, only punctuation may be altered"""
 
 def _build_rewrite_user_prompt(original_text, explanation_map):
 	lines = [
