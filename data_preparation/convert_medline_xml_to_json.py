@@ -1,10 +1,11 @@
 import xml.etree.ElementTree as ET
 import json
+import os
 import re
+import sys
 from html import unescape
 
-import bootstrap
-_ = bootstrap  # side-effect import: puts the repo root on sys.path (see server_init/bootstrap.py)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import JSON_FILE, XML_FILE
 
 def clean_html(raw_html):
