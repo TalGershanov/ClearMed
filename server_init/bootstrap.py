@@ -8,7 +8,7 @@ sys.modules["bootstrap"] = sys.modules[__name__]
 
 if __name__ == "__main__":
 	from log_config import setup_logging
-	from create_clearmed_db import build_database
+	from build_db import build_database
 
 	setup_logging()
 	build_database()

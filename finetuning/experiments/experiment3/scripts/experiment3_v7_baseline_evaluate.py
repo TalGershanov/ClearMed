@@ -54,7 +54,7 @@ for _path in (_REPO_ROOT, _SERVER_INIT_DIR, _SHARED_DIR):
 		sys.path.insert(0, _path)
 
 from dotenv import load_dotenv  # noqa: E402
-from create_clearmed_db import _select_short_explanation_index_ai  # noqa: E402
+from ai_services import _select_short_explanation_index_ai  # noqa: E402
 
 from dataset_io import load_jsonl, write_jsonl_atomic, write_json_atomic  # noqa: E402
 

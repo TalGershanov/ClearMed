@@ -40,7 +40,7 @@ for _path in (_REPO_ROOT, _SERVER_INIT_DIR, _SHARED_DIR, _DATA_SCRIPTS_DIR):
 	if _path not in sys.path:
 		sys.path.insert(0, _path)
 
-from create_clearmed_db import _SYSTEM_PROMPT  # noqa: E402
+from ai_services import _SYSTEM_PROMPT  # noqa: E402
 
 from dataset_io import load_jsonl, write_jsonl_atomic, write_json_atomic  # noqa: E402
 from finetune_prepare import user_prompt_for  # noqa: E402

@@ -243,7 +243,7 @@ def _scrape_pages(connection, client, urls, parse_page, resolve_concept):
 		if FORCE_RESCRAPE or not already_scraped(connection, concept_id):
 			collected.append({
 				"concept_id": concept_id,
-				"hebrew_names": parsed["hebrew_names"],
+				"target_names": parsed["hebrew_names"],
 				"english_names": parsed["english_names"],
 				"simple_explanation": parsed["body_text"],
 				"short_explanation": short_explanation,

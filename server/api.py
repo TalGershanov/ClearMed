@@ -99,16 +99,26 @@ async def analyse_text(request: AnalyseRequest):
 		result = detect_terms_with_explanations(request.text, effective_language_code)
 	except ValueError as e:
 		raise HTTPException(status_code=400, detail=str(e))
-	ui_selection = build_ui_selection(result)
-	return {"detected_terms": result, "ui_selection": ui_selection, "language_code": effective_language_code}
+	# detect_terms_with_explanations() returns one entry per text occurrence
+	# (needed by /translate's per-span splicing, which re-detects independently
+	# below) -- dedup by main_term (concept_id) here so the "select terms" list
+	# this endpoint feeds shows each concept once, first-seen order.
+	seen_main_terms = set()
+	unique_terms = []
+	for term in result:
+		if term["main_term"] not in seen_main_terms:
+			seen_main_terms.add(term["main_term"])
+			unique_terms.append(term)
+	ui_selection = build_ui_selection(unique_terms)
+	return {"detected_terms": unique_terms, "ui_selection": ui_selection, "language_code": effective_language_code}
 
 @app.post("/translate")
 @openmrs_app.post("/translate")
 async def translate_text(request: TranslateRequest):
 	effective_language_code = detect_language_code(request.text)
 	logger.info("translating text based on ui selection (language_code=%s)", effective_language_code)
-	# short_explanation is now AI-translated to Hebrew for 'he' concepts too
-	# (see server_init/create_clearmed_db.py::populate_hebrew_translations),
+	# short_explanation is now AI-translated per-language inline at DB-build
+	# time (see server_init/build_db.py::_populate_secondary_language),
 	# so the same field works for every language.
 	explanation_field = "short_explanation"
 	try:

@@ -38,7 +38,7 @@ for _path in (_REPO_ROOT, _SERVER_INIT_DIR, _SHARED_DIR):
 	if _path not in sys.path:
 		sys.path.insert(0, _path)
 
-from create_clearmed_db import _clean_candidate_sentences  # noqa: E402
+from ai_services import _clean_candidate_sentences  # noqa: E402
 from config import JSON_FILE  # noqa: E402
 
 from dataset_io import load_jsonl, write_json_atomic  # noqa: E402

@@ -21,7 +21,7 @@ def _get_claude_client():
 # It must never introduce medical facts, diagnoses, warnings, or treatment
 # advice beyond what is already present in original_text or explanation_map --
 # it rewrites for clarity, it does not add medical knowledge. V7 (selected
-# offline, at DB-build time -- see server_init/create_clearmed_db.py) remains
+# offline, at DB-build time -- see server_init/ai_services.py) remains
 # the sole source of which explanation text is "approved" for each term; this
 # prompt only controls how that already-approved wording gets woven into the
 # patient-facing paragraph.
