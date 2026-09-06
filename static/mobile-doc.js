@@ -34,20 +34,15 @@ async function loadDocument() {
 		if (!res.ok) throw new Error(`Server returned ${res.status}`);
 		originalDocument = await res.json();
 		showDocument();
-		loadLanguageOptions(docLanguageList);
 	} catch (err) {
 		console.error(err);
 		showError("Could not load this document. Please try again.");
 	}
 }
 
-docLanguageInput.addEventListener("change", async () => {
-	const code = resolveLanguageCode(docLanguageList, docLanguageInput.value);
+initLanguageDropdown(docLanguageInput, docLanguageList, async (code) => {
 	if (code === null) {
 		renderDocFields(originalDocument.explanation_text, originalDocument.explained_terms_list, originalDocument.disclaimer);
-		return;
-	}
-	if (code === undefined) {
 		return;
 	}
 	try {

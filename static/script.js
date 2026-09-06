@@ -325,18 +325,10 @@ const ORIGINAL_DISCLAIMER_TEXT = el("doc-disclaimer").textContent;
 const docLanguageInput = el("doc-language-input");
 const docLanguageList = el("doc-language-list");
 
-loadLanguageOptions(docLanguageList);
-
-docLanguageInput.addEventListener("change", async () => {
-	const code = resolveLanguageCode(docLanguageList, docLanguageInput.value);
+initLanguageDropdown(docLanguageInput, docLanguageList, async (code) => {
 	if (code === null) {
 		renderExportDoc();
 		el("doc-disclaimer").textContent = ORIGINAL_DISCLAIMER_TEXT;
-		return;
-	}
-	if (code === undefined) {
-		// typed text doesn't match any known language -- leave the document
-		// showing whatever was last rendered rather than guessing
 		return;
 	}
 	try {

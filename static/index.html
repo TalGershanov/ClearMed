@@ -102,8 +102,10 @@
 
 			<div class="language-select-row">
 				<label for="doc-language-input">View in language</label>
-				<input list="doc-language-list" id="doc-language-input" placeholder="Original" autocomplete="off">
-				<datalist id="doc-language-list"></datalist>
+				<div class="language-combobox">
+					<input type="text" id="doc-language-input" placeholder="Original" autocomplete="off">
+					<ul class="language-options hidden" id="doc-language-list"></ul>
+				</div>
 			</div>
 
 			<div class="doc-frame" id="doc-frame">
