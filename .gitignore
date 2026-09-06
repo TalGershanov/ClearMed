@@ -4,7 +4,6 @@ __pycache__/
 .idea/
 .env
 *.db
-output/
 .DS_Store
 logs/
 הגשות האב.zip

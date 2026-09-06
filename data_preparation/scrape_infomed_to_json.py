@@ -1,19 +1,22 @@
 import json
 import logging
+import os
 import re
 import sqlite3
+import sys
 import time
 
 import httpx
 from bs4 import BeautifulSoup, Tag
 
-import bootstrap
-_ = bootstrap  # side-effect import: puts the repo root on sys.path (see server_init/bootstrap.py)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import DB_FILE, HEBREW_JSON_FILE
-from hebrew_terms import ENGLISH_LANG, already_scraped
 from logic.term_detectors.hebrew import is_hebrew_char
 
-logger = logging.getLogger("clearmed.server_init.scrape_infomed_to_json")
+logger = logging.getLogger("clearmed.data_preparation.scrape_infomed_to_json")
+
+ENGLISH_LANG = "en"
+HEBREW_LANG = "he"
 
 DEFINITIONS_SITEMAP_URL = "https://www.infomed.co.il/content/sitemaps/definitions-sitemap.xml"
 DEFINITIONS_URL_PREFIX = "https://www.infomed.co.il/definitions/"
@@ -28,6 +31,14 @@ LIMIT = None
 # after changing _extract_body_text) -- otherwise already_scraped() skips
 # them. Revert to False afterward so normal runs stay incremental-only.
 FORCE_RESCRAPE = False
+
+
+def already_scraped(connection, concept_id):
+	row = connection.execute(
+		"SELECT 1 FROM explanations WHERE concept_id = ? AND language_code = ?",
+		(concept_id, HEBREW_LANG),
+	).fetchone()
+	return row is not None
 
 
 def fetch_sitemap_urls(client, sitemap_url, url_prefix):

@@ -12,7 +12,7 @@ from openai import OpenAI
 
 import bootstrap
 _ = bootstrap  # side-effect import: puts the repo root on sys.path (see server_init/bootstrap.py)
-from config import JSON_FILE, DB_FILE
+from config import JSON_FILE, HEBREW_JSON_FILE, DB_FILE
 from DAL.db import SQLiteDatabase
 
 load_dotenv()
@@ -288,15 +288,12 @@ def translate_short_explanation_to_hebrew(short_explanation: str) -> Optional[st
 
 def populate_hebrew_translations():
 	"""Replaces the placeholder short_explanation on every existing 'he'
-	explanations row (created by populate_hebrew_terms() from the
-	infomed.co.il scrape -- see server_init/hebrew_terms.py, where that
-	placeholder is just the matched English concept's short_explanation
-	copied verbatim) with a real AI translation of that English
-	short_explanation. Never touches term_name/simple_explanation, and never
-	calls V7. Used both by the normal bootstrap pipeline
-	(server_init/bootstrap.py, after populate_hebrew_terms()) and by
-	server_init/retranslate_hebrew.py, so there is exactly one
-	implementation of this loop.
+	explanations row (created by populate_hebrew_terms() above from the
+	infomed.co.il scrape, where that placeholder is just the matched English
+	concept's short_explanation copied verbatim) with a real AI translation
+	of that English short_explanation. Never touches term_name/simple_explanation,
+	and never calls V7. Called by build_database() right after
+	populate_hebrew_terms().
 
 	If translation fails for a row (translate_short_explanation_to_hebrew
 	returns None), that row is skipped entirely: its existing
@@ -343,12 +340,92 @@ def populate_hebrew_translations():
 	)
 	return {"total": total, "updated": updated, "skipped_no_source": skipped_no_source, "failed": failed}
 
+def _upsert_hebrew_explanation(connection, concept_id, short_explanation, hebrew_names, english_names, body_text):
+	with connection:
+		connection.execute(
+			"""
+			INSERT INTO explanations (concept_id, language_code, term_name, simple_explanation, short_explanation)
+			VALUES (?, ?, ?, ?, ?)
+			ON CONFLICT(concept_id, language_code) DO UPDATE SET
+				term_name = excluded.term_name,
+				simple_explanation = excluded.simple_explanation,
+				short_explanation = excluded.short_explanation
+			""",
+			(
+				concept_id,
+				"he",
+				hebrew_names[0],
+				body_text,
+				# PLACEHOLDER: copied verbatim from the matched English concept
+				# at scrape time, not translated. Overwritten with a real
+				# translation by populate_hebrew_translations(), which runs
+				# right after this in build_database().
+				short_explanation,
+			),
+		)
+		alias_rows = [(name, concept_id, "he") for name in hebrew_names] + \
+			[(name, concept_id, "en") for name in english_names]
+		# One row at a time (not executemany) so a dropped INSERT OR IGNORE
+		# -- alias_text is a table-wide primary key, so this happens whenever
+		# two different concepts share an alias string -- gets logged instead
+		# of silently vanishing.
+		for alias_text, alias_concept_id, language_code in alias_rows:
+			cursor = connection.execute(
+				"INSERT OR IGNORE INTO term_aliases (alias_text, concept_id, language_code) VALUES (?, ?, ?)",
+				(alias_text, alias_concept_id, language_code),
+			)
+			if cursor.rowcount == 0:
+				logger.warning(
+					"Alias %r not inserted for concept_id=%r (language_code=%r) -- "
+					"alias_text already claimed by a different concept",
+					alias_text, alias_concept_id, language_code,
+				)
+
+def populate_hebrew_terms():
+	connection = sqlite3.connect(DB_FILE)
+	connection.execute("PRAGMA foreign_keys = ON")
+
+	with open(HEBREW_JSON_FILE, "r", encoding="utf-8") as f:
+		data = json.load(f)
+	terms = data["terms"]
+
+	inserted = skipped = 0
+	for term in terms:
+		concept_id = term["concept_id"]
+		exists = connection.execute(
+			"SELECT 1 FROM explanations WHERE concept_id = ? AND language_code = ?",
+			(concept_id, "en"),
+		).fetchone()
+		if exists is None:
+			logger.warning(
+				"Skipping Hebrew term for concept_id=%r: no matching English concept in the current DB "
+				"(the English source JSON may have changed since this Hebrew JSON was captured)",
+				concept_id,
+			)
+			skipped += 1
+			continue
+		_upsert_hebrew_explanation(
+			connection, concept_id, term["short_explanation"],
+			term["hebrew_names"], term["english_names"], term["simple_explanation"],
+		)
+		inserted += 1
+
+	connection.close()
+	print(f"Hebrew terms read from {HEBREW_JSON_FILE}: {len(terms)}")
+	print(f"Inserted: {inserted}")
+	print(f"Skipped (no matching English concept in current DB): {skipped}")
+
 def build_database():
 	"""Builds the full database in one straight line: English concepts,
 	then Hebrew terms, then Hebrew translations. The single definition of
 	this sequence -- bootstrap.py and this module's own __main__ both call
 	it instead of each writing the three steps out separately."""
-	from populate_hebrew_terms import populate_hebrew_terms
+	if not os.environ.get("DEEPL_API_KEY"):
+		raise SystemExit(
+			"DEEPL_API_KEY is not set in the environment. Stopping before the "
+			"English seed so a bootstrap run is never left with untranslated "
+			"Hebrew placeholders."
+		)
 
 	create_database()
 	populate_hebrew_terms()
