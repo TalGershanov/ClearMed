@@ -18,11 +18,33 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
             cd ~/clearmed
             git pull origin main
+
+            # Patient-app frontend (webapp/ backend routes) -- served by nginx
+            # at /app/ from appFrontend/dist/, see README.md#deployment.
+            cd appFrontend
+            pnpm install --frozen-lockfile
+            pnpm build
+            cd ..
+
             source venv_aws_11/bin/activate
-            pip install -r requirements.txt --quiet || true
+            pip install -r requirements.txt --quiet
+            alembic upgrade head
+
             pkill uvicorn || true
+            sleep 1
             nohup uvicorn server.api:app --host 0.0.0.0 --port 8000 > output.log 2>&1 &
             sleep 2
-            exit 0
+
+            # Fail the deploy loudly instead of leaving a crashed process
+            # behind an nginx proxy that still reports a "successful" deploy.
+            curl -sf -o /dev/null http://127.0.0.1:8000/ || {
+              echo "uvicorn failed to start -- last 50 lines of output.log:"
+              tail -n 50 output.log
+              exit 1
+            }

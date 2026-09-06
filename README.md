@@ -132,7 +132,38 @@ https://clearmed.duckdns.org
 ## Deployment
 
 `.github/workflows/deploy.yml` automatically deploys to an EC2 instance on every push
-to `main`: it SSHs in, `git pull`s, and restarts `uvicorn`.
+to `main`: it SSHs in, `git pull`s, builds the `appFrontend/` React app, installs
+Python deps, runs pending `alembic` migrations, and restarts `uvicorn` -- failing the
+deploy loudly (with the last 50 lines of `output.log`) if the server doesn't come back
+up, instead of leaving a crashed process behind a still-"successful" nginx proxy.
+
+### One-time production box setup
+
+The automated deploy assumes the box already has this in place. On a fresh EC2
+instance (or after replacing the current one), set these up once by hand first:
+
+* **`~/clearmed/.env`** -- not tracked in git. Copy `.env.example` and fill in real
+  values, at minimum `JWT_SECRET_KEY` (`python -c "import secrets; print(secrets.token_hex(32))"`)
+  and `ENVIRONMENT=production`. A missing `JWT_SECRET_KEY` crashes the *entire* app at
+  import time (not just the patient-app routes), which is a common cause of a
+  site-wide 502.
+* **Node.js + pnpm**, for building `appFrontend/`. Amazon Linux 2023's `dnf` Node
+  package is too old for this project's Vite version; install via
+  [nvm](https://github.com/nvm-sh/nvm) instead: `nvm install 20 && npm install -g pnpm`.
+* **Docker + the Compose plugin**, for the patient-app's Postgres database
+  (`docker-compose.yml`). AL2023 doesn't package `docker-compose-plugin`; install the
+  plugin binary directly per
+  [Docker's docs](https://docs.docker.com/compose/install/linux/#install-the-plugin-manually).
+  Then `docker compose up -d` once to create the `clearmed_postgres` container (the
+  deploy script does not start it for you).
+* **nginx**: `/etc/nginx/conf.d/clearmed.conf` needs a `location /app/` block serving
+  `appFrontend/dist/` (via `alias`, with `try_files $uri $uri/ /app/index.html` for
+  client-side routing), alongside the existing `location /` proxy to
+  `http://127.0.0.1:8000`. Confirm the nginx worker user can traverse into
+  `~/clearmed` (`sudo -u nginx stat ~/clearmed/appFrontend/dist/index.html`).
+
+Once those are in place, every subsequent `git push` to `main` redeploys both the
+API and the frontend, and applies any new `alembic` migrations, without manual steps.
 
 ---
 
