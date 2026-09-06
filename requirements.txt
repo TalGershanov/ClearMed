@@ -9,3 +9,13 @@ httpx>=0.27
 pytest>=8.0
 beautifulsoup4>=4.12
 lxml>=5.0
+
+# --- Patient app (webapp/) ---
+sqlalchemy==2.0.52
+psycopg2-binary==2.9.12
+alembic==1.16.5
+argon2-cffi==25.1.0
+pyjwt==2.13.0
+email-validator==2.3.0
+pypdf==6.17.0
+pymupdf==1.28.2

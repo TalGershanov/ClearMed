@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: clearmed_postgres
+    environment:
+      POSTGRES_USER: clearmed
+      POSTGRES_PASSWORD: clearmed
+      POSTGRES_DB: clearmed_app
+    ports:
+      - "5433:5432"
+    volumes:
+      - clearmed_pgdata:/var/lib/postgresql/data
+
+volumes:
+  clearmed_pgdata:

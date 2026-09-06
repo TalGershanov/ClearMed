@@ -19,6 +19,10 @@ from openmrs.schemas import (
 	OpenMRSObservation,
 	OpenMRSPatient,
 )
+from webapp.auth.router import router as auth_router
+from webapp.core import config as webapp_config
+from webapp.documents.router import router as documents_router
+from webapp.folders.router import router as folders_router
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -38,6 +42,34 @@ async def lifespan(_app: FastAPI):
 	await close_openmrs_client()
 
 app = FastAPI(title="ClearMed API", lifespan=lifespan)
+
+# --- Patient app (webapp/) ---------------------------------------------------
+# A separate application/user-data system (auth, user-owned folders and
+# documents) living alongside the ClearMed medical-term pipeline above -- its
+# own PostgreSQL database, its own routers. See webapp/ for details; nothing
+# here touches logic/, DAL/, or clearmed.db.
+#
+# allow_origins is the union of the patient-app frontend's origin and
+# openmrs_app's own origins (below) -- NOT because they share a CORS policy,
+# but because Starlette's CORSMiddleware.preflight_response rejects an
+# unrecognized origin with a 400 *before* the request ever reaches an inner
+# mounted app. Adding a narrower CORSMiddleware here that only knew about the
+# patient-app origin would 400 every OpenMRS-origin preflight at this outer
+# layer, never letting it reach openmrs_app's own (correctly-scoped)
+# CORSMiddleware below. openmrs_app's middleware is left untouched; this is
+# purely an outer-layer widening so both origins' preflights get past this
+# layer, each still gated by its own middleware after that.
+app.add_middleware(
+	CORSMiddleware,
+	allow_origins=list(dict.fromkeys(webapp_config.CORS_ALLOWED_ORIGINS + [OPENMRS_ORIGIN, "http://localhost:8080"])),
+	allow_credentials=True,
+	allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+	allow_headers=["Content-Type"],
+)
+app.include_router(auth_router)
+app.include_router(folders_router)
+app.include_router(documents_router)
+# --- end patient app ----------------------------------------------------------
 
 class AnalyseRequest(BaseModel):
 	text: str

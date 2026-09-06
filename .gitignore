@@ -14,3 +14,11 @@ MRCONSO.RRF
 *.bak
 openmrs-frontend/esm-clearmed-widget/node_modules/
 openmrs-frontend/esm-clearmed-widget/dist/
+
+# --- Patient app (webapp/, appFrontend/) ---
+.pytest_cache/
+node_modules/
+dist/
+uploads/
+.venv311/
+.vite/
