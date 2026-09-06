@@ -14,7 +14,7 @@ for _path in (_REPO_ROOT, _SERVER_INIT_DIR, _SHARED_DIR, _DATA_SCRIPTS_DIR):
 from dotenv import load_dotenv  # noqa: E402
 from openai import OpenAI  # noqa: E402
 
-from create_clearmed_db import _SYSTEM_PROMPT  # noqa: E402
+from ai_services import _SYSTEM_PROMPT  # noqa: E402
 
 from dataset_io import load_jsonl, load_json, write_jsonl_atomic  # noqa: E402
 from finetune_prepare import user_prompt_for  # noqa: E402

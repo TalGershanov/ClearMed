@@ -102,10 +102,11 @@ ClearMed/
 ├── server/            ← FastAPI app and routes (api.py)
 ├── logic/             ← term detection (trie) + translation
 ├── DAL/               ← data access layer over clearmed.db (SQLite)
-├── server_init/       ← offline: builds clearmed.db from health_topics.xml
+├── data_preparation/  ← offline, rarely run: scrapes/converts raw sources into JSON
+│                        (health_topics.xml lives here)
+├── server_init/       ← offline: builds clearmed.db from server_init/data/*.json
 ├── static/            ← frontend wizard (upload → select → review → export)
 │
-├── health_topics.xml  ← MedlinePlus source data
 ├── clearmed.db         ← SQLite term database
 ├── requirements.txt
 └── README.md

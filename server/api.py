@@ -4,12 +4,12 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from google.genai import errors as genai_errors
+import httpx
 from log_config import setup_logging
 from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations, init_trie
-from logic.ocr import extract_text_from_image
+from logic.ocr import VisionAPIError, extract_text_from_image
 from logic.term_detectors.hebrew import detect_language_code
-from logic.translator import build_explanation_map, simplify_text_with_openai
+from logic.translator import apply_translations
 from openmrs.client import OpenMRSAPIError, close_openmrs_client, get_openmrs_client
 from openmrs.config import OPENMRS_NOTE_CONCEPT_UUID, OPENMRS_ORIGIN
 from openmrs.schemas import (
@@ -99,26 +99,26 @@ openmrs_app.add_middleware(
 # the OpenMRS widget can call them cross-origin as /openmrs/analyse and
 # /openmrs/translate, inheriting openmrs_app's CORS scoping above) -- the
 # same handler function is just registered twice, no logic duplicated.
-MAX_OCR_IMAGE_BYTES = 15 * 1024 * 1024  # stays under Gemini's inline-request ceiling once base64-encoded
+MAX_OCR_IMAGE_BYTES = 15 * 1024 * 1024  # stays under Cloud Vision's 20MB request-payload ceiling once base64-encoded
 
 @app.post("/ocr")
 async def ocr_image(image: UploadFile = File(...)):
-	logger.info("extracting text from uploaded image via Gemini")
+	logger.info("extracting text from uploaded image via Cloud Vision")
 	if not image.content_type or not image.content_type.startswith("image/"):
 		raise HTTPException(status_code=400, detail="Uploaded file must be an image.")
 	image_bytes = await image.read()
 	if len(image_bytes) > MAX_OCR_IMAGE_BYTES:
 		raise HTTPException(status_code=413, detail="Image is too large; please use a smaller photo.")
 	try:
-		# generate_content is a blocking call -- run it off the event loop so a
-		# slow Gemini round-trip doesn't stall every other concurrent request.
+		# the Vision REST call is blocking -- run it off the event loop so a
+		# slow round-trip doesn't stall every other concurrent request.
 		text = await asyncio.to_thread(extract_text_from_image, image_bytes, image.content_type)
 	except RuntimeError as e:
 		raise HTTPException(status_code=503, detail=str(e))
 	except ValueError as e:
 		raise HTTPException(status_code=422, detail=str(e))
-	except genai_errors.APIError as e:
-		logger.error("Gemini OCR request failed: %s", e)
+	except (httpx.HTTPError, VisionAPIError) as e:
+		logger.error("Cloud Vision OCR request failed: %s", e)
 		raise HTTPException(status_code=502, detail="OCR service is temporarily unavailable. Please try again.")
 	return {"text": text}
 
@@ -131,24 +131,33 @@ async def analyse_text(request: AnalyseRequest):
 		result = detect_terms_with_explanations(request.text, effective_language_code)
 	except ValueError as e:
 		raise HTTPException(status_code=400, detail=str(e))
-	ui_selection = build_ui_selection(result)
-	return {"detected_terms": result, "ui_selection": ui_selection, "language_code": effective_language_code}
+	# detect_terms_with_explanations() returns one entry per text occurrence
+	# (needed by /translate's per-span splicing, which re-detects independently
+	# below) -- dedup by main_term (concept_id) here so the "select terms" list
+	# this endpoint feeds shows each concept once, first-seen order.
+	seen_main_terms = set()
+	unique_terms = []
+	for term in result:
+		if term["main_term"] not in seen_main_terms:
+			seen_main_terms.add(term["main_term"])
+			unique_terms.append(term)
+	ui_selection = build_ui_selection(unique_terms)
+	return {"detected_terms": unique_terms, "ui_selection": ui_selection, "language_code": effective_language_code}
 
 @app.post("/translate")
 @openmrs_app.post("/translate")
 async def translate_text(request: TranslateRequest):
 	effective_language_code = detect_language_code(request.text)
 	logger.info("translating text based on ui selection (language_code=%s)", effective_language_code)
-	# short_explanation is now AI-translated to Hebrew for 'he' concepts too
-	# (see server_init/create_clearmed_db.py::populate_hebrew_translations),
+	# short_explanation is now AI-translated per-language inline at DB-build
+	# time (see server_init/build_db.py::_populate_secondary_language),
 	# so the same field works for every language.
 	explanation_field = "short_explanation"
 	try:
 		detected_terms = detect_terms_with_explanations(request.text, effective_language_code)
 	except ValueError as e:
 		raise HTTPException(status_code=400, detail=str(e))
-	explanation_map, explained_terms_list = build_explanation_map(detected_terms, request.ui_selection, explanation_field)
-	final_text = simplify_text_with_openai(request.text, explanation_map)
+	final_text, explained_terms_list = apply_translations(request.text, detected_terms, request.ui_selection, explanation_field)
 	return {"translated_text": final_text, "explained_terms_list": explained_terms_list}
 
 async def _call_openmrs(action):

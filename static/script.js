@@ -254,14 +254,10 @@ function renderSummary() {
 	box.contentEditable = "false";
 	el("btn-edit-manually").textContent = "✎ Edit manually";
 	box.innerHTML = "";
-	sentencesOf(state.translatedText).forEach((sentence) => {
-		const p = document.createElement("p");
-		p.setAttribute("dir", "auto");
-		p.textContent = sentence;
-		box.appendChild(p);
-	});
-
-	el("original-box").textContent = state.originalText;
+	const summaryP = document.createElement("p");
+	summaryP.setAttribute("dir", "auto");
+	summaryP.textContent = state.translatedText;
+	box.appendChild(summaryP);
 
 	const list = el("detected-list");
 	list.innerHTML = "";
@@ -270,11 +266,6 @@ function renderSummary() {
 		li.textContent = term;
 		list.appendChild(li);
 	});
-}
-
-function sentencesOf(text) {
-	const parts = text.match(/[^.!?]+[.!?]*[)"']*/g);
-	return parts ? parts.map((s) => s.trim()).filter(Boolean) : [text];
 }
 
 el("btn-edit-manually").addEventListener("click", () => {
@@ -306,14 +297,10 @@ function renderExportDoc() {
 
 	const explanation = el("doc-explanation");
 	explanation.innerHTML = "";
-	sentencesOf(state.translatedText).forEach((sentence) => {
-		const p = document.createElement("p");
-		p.setAttribute("dir", "auto");
-		p.textContent = sentence;
-		explanation.appendChild(p);
-	});
-
-	el("doc-original-text").textContent = state.originalText;
+	const docP = document.createElement("p");
+	docP.setAttribute("dir", "auto");
+	docP.textContent = state.translatedText;
+	explanation.appendChild(docP);
 
 	const list = el("doc-terms-list");
 	list.innerHTML = "";
