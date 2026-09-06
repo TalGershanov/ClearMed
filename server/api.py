@@ -5,7 +5,10 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 import httpx
+from DAL import shares_db
 from log_config import setup_logging
+from logic.document_shares import ShareNotFoundError, create_shared_document, get_shared_document, translate_shared_document
+from logic.document_translation import TranslationAPIError, get_disclaimer, list_supported_languages, translate_document_fields
 from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations, init_trie
 from logic.ocr import VisionAPIError, extract_text_from_image
 from logic.term_detectors.hebrew import detect_language_code
@@ -25,9 +28,10 @@ from webapp.documents.router import router as documents_router
 from webapp.folders.router import router as folders_router
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from typing import Dict
+from typing import Dict, List
 
 setup_logging()
 
@@ -38,6 +42,9 @@ logger.info("--- Starting ClearMed Application ---")
 async def lifespan(_app: FastAPI):
 	# build the medical term trie once, before the server starts accepting requests
 	init_trie()
+	# create shares.db's table if it doesn't exist yet -- separate file from
+	# DB_FILE/clearmed.db, see DAL/shares_db.py
+	shares_db.init_schema()
 	yield
 	await close_openmrs_client()
 
@@ -79,6 +86,18 @@ class TranslateRequest(BaseModel):
 	text: str
 	ui_selection: Dict[str, bool]
 	language_code: str = "en"
+
+class ShareCreateRequest(BaseModel):
+	explanation_text: str
+	explained_terms_list: List[str]
+
+class ShareTranslateRequest(BaseModel):
+	target_language_code: str
+
+class DocumentTranslateRequest(BaseModel):
+	explanation_text: str
+	explained_terms_list: List[str]
+	target_language_code: str
 
 # Mounted as its own sub-app (not routes on `app` directly) so the CORS
 # allowlist below applies only to /openmrs/*, not to every route on `app`
@@ -160,6 +179,15 @@ async def translate_text(request: TranslateRequest):
 	final_text, explained_terms_list = apply_translations(request.text, detected_terms, request.ui_selection, explanation_field)
 	return {"translated_text": final_text, "explained_terms_list": explained_terms_list}
 
+# Only the OpenMRS widget (cross-origin) creates shares -- the static wizard
+# never does, so this only needs registering on openmrs_app, not dual-
+# registered like /analyse and /translate above.
+@openmrs_app.post("/documents/share")
+async def create_document_share(request: ShareCreateRequest):
+	logger.info("creating document share")
+	share_id = create_shared_document(request.explanation_text, request.explained_terms_list)
+	return {"uuid": share_id}
+
 async def _call_openmrs(action):
 	"""Runs `action(client)` against the shared OpenMRS client, mapping client
 	failures to the HTTPException the calling endpoint should raise."""
@@ -226,7 +254,69 @@ async def get_patient_notes(patient_uuid: str):
 
 app.mount("/openmrs", openmrs_app)
 
+# --- Same-origin document translation/sharing (static wizard + mobile QR page) --
+# All same-origin (called by static/script.js and static/mobile-doc.js, both
+# served from this same app), so no CORS scoping needed -- unlike the
+# create-share endpoint above, which is the one call the OpenMRS widget makes
+# cross-origin. Must be registered before the "/" StaticFiles mount below:
+# Starlette tries explicit path operations before falling through to a mount,
+# but only if they're registered earlier than the mount.
+
+@app.get("/shares/{share_id}")
+async def get_document_share(share_id: str):
+	try:
+		share = get_shared_document(share_id)
+	except ShareNotFoundError:
+		raise HTTPException(status_code=404, detail="This document link is no longer valid.")
+	return {
+		"explanation_text": share["explanation_text"],
+		"explained_terms_list": share["explained_terms_list"],
+		"disclaimer": get_disclaimer("en"),
+	}
+
+@app.post("/shares/{share_id}/translate")
+async def translate_document_share(share_id: str, request: ShareTranslateRequest):
+	logger.info("translating shared document %s to %s", share_id, request.target_language_code)
+	try:
+		# translate_shared_document makes a blocking Google Translate REST
+		# call -- run it off the event loop, same as /ocr does for Vision.
+		return await asyncio.to_thread(translate_shared_document, share_id, request.target_language_code)
+	except ShareNotFoundError:
+		raise HTTPException(status_code=404, detail="This document link is no longer valid.")
+	except TranslationAPIError as e:
+		logger.error("translation failed for share %s: %s", share_id, e)
+		raise HTTPException(status_code=502, detail="Translation service is temporarily unavailable. Please try again.")
+
+@app.get("/languages")
+async def get_languages():
+	try:
+		return await asyncio.to_thread(list_supported_languages)
+	except TranslationAPIError as e:
+		logger.error("failed to fetch supported languages: %s", e)
+		raise HTTPException(status_code=502, detail="Translation service is temporarily unavailable. Please try again.")
+
+@app.post("/translate-document")
+async def translate_document(request: DocumentTranslateRequest):
+	logger.info("translating document (stateless) to %s", request.target_language_code)
+	try:
+		result = await asyncio.to_thread(
+			translate_document_fields, request.explanation_text, request.explained_terms_list, request.target_language_code
+		)
+	except TranslationAPIError as e:
+		logger.error("translation failed: %s", e)
+		raise HTTPException(status_code=502, detail="Translation service is temporarily unavailable. Please try again.")
+	result["disclaimer"] = get_disclaimer(request.target_language_code)
+	return result
+
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+
+@app.get("/doc/{uuid}")
+async def mobile_document_page(uuid: str):
+	# The uuid itself is read client-side from location.pathname by
+	# static/mobile-doc.js, which then fetches GET /shares/{uuid} -- this
+	# route only ever serves the same static page shell for any uuid shape.
+	return FileResponse(os.path.join(STATIC_DIR, "mobile-doc.html"))
+
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
 
 # to activate server run in terminal uvicorn server.api:app --reload

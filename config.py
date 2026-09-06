@@ -7,6 +7,11 @@ HEBREW_JSON_FILE = os.path.join(BASE_DIR, "server_init", "data", "clearmed_terms
 DB_FILE = os.path.join(BASE_DIR, "clearmed.db")
 XML_FILE = os.path.join(BASE_DIR, "data_preparation", "health_topics.xml")
 
+# Separate SQLite file for temporary, publicly-readable document shares (the
+# QR-code flow) -- never the same file as DB_FILE, so this feature can never
+# accidentally read/write the read-only verified-term database.
+SHARES_DB_FILE = os.path.join(BASE_DIR, "shares.db")
+
 PRIMARY_LANGUAGE_CODE = "en"
 
 SUPPORTED_LANGUAGES = {

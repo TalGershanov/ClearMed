@@ -100,18 +100,23 @@
 			<h2 class="card-title center">Summary Generated Successfully</h2>
 			<p class="card-subtitle center">The patient-friendly version is ready.</p>
 
+			<div class="language-select-row">
+				<label for="doc-language-input">View in language</label>
+				<input list="doc-language-list" id="doc-language-input" placeholder="Original" autocomplete="off">
+				<datalist id="doc-language-list"></datalist>
+			</div>
+
 			<div class="doc-frame" id="doc-frame">
 				<div class="doc-header">
 					<img src="logo.png" alt="ClearMed" class="doc-logo">
 					<span class="doc-date" id="doc-date"></span>
 				</div>
-				<h3 class="doc-title">Patient-Friendly Summary</h3>
 				<div class="doc-explanation" id="doc-explanation" dir="auto"></div>
 				<div class="doc-terms">
 					<h4>Selected Terms</h4>
 					<ul id="doc-terms-list"></ul>
 				</div>
-				<p class="doc-disclaimer">Term explanations are sourced from MedlinePlus, a service of the U.S. National Library of Medicine (NIH), and were shortened and summarized with the help of AI for readability. This document is not a substitute for professional medical advice.</p>
+				<p class="doc-disclaimer" id="doc-disclaimer">Term explanations are sourced from MedlinePlus, a service of the U.S. National Library of Medicine (NIH), and were shortened with the help of AI for readability. This document is not a substitute for professional medical advice.</p>
 			</div>
 
 			<p class="next-label">What would you like to do next?</p>
@@ -142,6 +147,7 @@
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="doc-common.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

@@ -211,6 +211,7 @@
 // standalone wizard's step 4.
 
 .docFrame {
+  position: relative;
   background: var(--clearmed-card-bg);
   border: 1px solid var(--clearmed-border);
   border-radius: 14px;
@@ -247,13 +248,6 @@
 .docDate {
   color: var(--clearmed-text-muted);
   font-size: 0.85rem;
-}
-
-.docTitle {
-  margin: 0 0 16px;
-  font-size: 1.2rem;
-  letter-spacing: -0.01em;
-  color: var(--clearmed-text);
 }
 
 .docExplanation {
@@ -308,6 +302,12 @@
   color: var(--clearmed-text-muted);
 }
 
+.docQr {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+}
+
 // The document is rendered a second time into a React portal targeting
 // document.body (see the component's print-portal), specifically so this
 // print rule doesn't have to guess at OpenMRS's own page layout. Because
@@ -338,7 +338,12 @@
 
     .clearmed-print-portal {
       display: block !important;
-      position: static;
+      // relative, not static: .docFrame's own rule sets position: relative
+      // so .docQr can be positioned absolute within it -- this selector
+      // targets the exact same node in the printed copy (it carries both
+      // classes) and would otherwise win the cascade with `static`,
+      // breaking the QR code's positioning on the printed page.
+      position: relative;
       width: 100%;
       max-width: 100%;
       margin: 0;
@@ -353,6 +358,10 @@
 // match the hashed classnames the component actually renders.
 @media print {
   .docTerms {
+    break-inside: avoid;
+  }
+
+  .docQr {
     break-inside: avoid;
   }
 }

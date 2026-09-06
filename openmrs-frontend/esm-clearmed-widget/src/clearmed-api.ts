@@ -39,6 +39,10 @@ export interface PatientNote {
   note_text: string;
 }
 
+export interface CreateShareResponse {
+  uuid: string;
+}
+
 async function toError(response: Response): Promise<Error> {
   try {
     const body: { detail?: string } = await response.json();
@@ -73,6 +77,17 @@ export async function translateText(
   uiSelection: Record<string, boolean>,
 ): Promise<TranslateResponse> {
   return postJson(`${baseUrl}/openmrs/translate`, { text, ui_selection: uiSelection });
+}
+
+export async function createDocumentShare(
+  baseUrl: string,
+  explanationText: string,
+  explainedTermsList: string[],
+): Promise<CreateShareResponse> {
+  return postJson(`${baseUrl}/openmrs/documents/share`, {
+    explanation_text: explanationText,
+    explained_terms_list: explainedTermsList,
+  });
 }
 
 export async function fetchPatientNotes(baseUrl: string, patientUuid: string): Promise<PatientNote[]> {

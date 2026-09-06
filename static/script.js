@@ -315,6 +315,49 @@ el("btn-print").addEventListener("click", () => {
 	window.print();
 });
 
+/* ---------- Step 4: language dropdown ---------- */
+
+// Captured once, before any translation swap can overwrite it, so switching
+// back to "Original" can restore the exact English disclaimer already baked
+// into index.html -- no need to duplicate that string in JS.
+const ORIGINAL_DISCLAIMER_TEXT = el("doc-disclaimer").textContent;
+
+const docLanguageInput = el("doc-language-input");
+const docLanguageList = el("doc-language-list");
+
+loadLanguageOptions(docLanguageList);
+
+docLanguageInput.addEventListener("change", async () => {
+	const code = resolveLanguageCode(docLanguageList, docLanguageInput.value);
+	if (code === null) {
+		renderExportDoc();
+		el("doc-disclaimer").textContent = ORIGINAL_DISCLAIMER_TEXT;
+		return;
+	}
+	if (code === undefined) {
+		// typed text doesn't match any known language -- leave the document
+		// showing whatever was last rendered rather than guessing
+		return;
+	}
+	try {
+		const res = await fetch("/translate-document", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				explanation_text: state.translatedText,
+				explained_terms_list: state.explainedTermsList,
+				target_language_code: code,
+			}),
+		});
+		if (!res.ok) throw new Error(`Server returned ${res.status}`);
+		const data = await res.json();
+		renderDocFields(data.explanation_text, data.explained_terms_list, data.disclaimer);
+	} catch (err) {
+		console.error(err);
+		alert("Could not translate the document. Please try again.");
+	}
+});
+
 el("btn-new-doc").addEventListener("click", () => {
 	state.currentStep = 1;
 	state.fileName = "";
