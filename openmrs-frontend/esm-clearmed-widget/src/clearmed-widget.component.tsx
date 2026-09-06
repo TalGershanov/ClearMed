@@ -22,13 +22,6 @@ function combineNoteText(visitNotes: string, recommendation: string): string {
   return `Visit notes:\n${visitNotes}\n\nRecommendation & medication:\n${recommendation}`;
 }
 
-// Mirrors static/script.js's sentencesOf() so the generated document reads
-// the same way as the standalone wizard's: one <p> per sentence.
-function sentencesOf(text: string): string[] {
-  const parts = text.match(/[^.!?]+[.!?]*[)"']*/g);
-  return parts ? parts.map((s) => s.trim()).filter(Boolean) : [text];
-}
-
 export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
   const config = useConfig<ConfigSchema>();
   const { clearmedApiBaseUrl } = config;
@@ -139,7 +132,6 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
     window.print();
   };
 
-  const combinedText = combineNoteText(visitNotes, recommendation);
   const today = new Date().toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -159,14 +151,7 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
         <h3 className={styles.docTitle}>Patient-Friendly Summary</h3>
 
         <div className={styles.docExplanation}>
-          {sentencesOf(editedText).map((sentence, i) => (
-            <p key={i} dir="auto">{sentence}</p>
-          ))}
-        </div>
-
-        <div className={styles.docOriginal}>
-          <h4>Original Notes</h4>
-          <pre dir="auto">{combinedText}</pre>
+          <p dir="auto">{editedText}</p>
         </div>
 
         <div className={styles.docTerms}>
@@ -292,17 +277,9 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
               />
             ) : (
               <div className={styles.docExplanation}>
-                {sentencesOf(editedText).map((sentence, i) => (
-                  <p key={i} dir="auto">{sentence}</p>
-                ))}
+                <p dir="auto">{editedText}</p>
               </div>
             )}
-          </div>
-
-          <div className={styles.card}>
-            <div className={styles.cardTitle}>Original Notes</div>
-            <div className={styles.cardAccent} />
-            <pre className={styles.originalBox} dir="auto">{combinedText}</pre>
           </div>
 
           <div className={styles.card}>

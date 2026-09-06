@@ -206,23 +206,6 @@
   font-weight: 700;
 }
 
-// Read-only original-notes box on the review-translation step -- same look
-// as .docOriginal pre in the final document, standalone (no section-divider
-// styling, since this one is the sole/first thing in its own card).
-.originalBox {
-  white-space: pre-wrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.8rem;
-  background: rgba(100, 116, 139, 0.08);
-  border: 1px solid var(--clearmed-border);
-  border-radius: 8px;
-  padding: 14px;
-  margin: 0;
-  max-height: 260px;
-  overflow-y: auto;
-  color: var(--clearmed-text);
-}
-
 // Generated-document view (result step) -- mirrors static/style.css's
 // .doc-* rules so the OpenMRS-embedded output reads the same as the
 // standalone wizard's step 4.
@@ -278,10 +261,10 @@
 
   p {
     margin: 0 0 12px;
+    white-space: pre-wrap;
   }
 }
 
-.docOriginal,
 .docTerms {
   margin-top: 24px;
   padding-top: 20px;
@@ -292,20 +275,6 @@
     font-size: 0.95rem;
     color: var(--clearmed-text);
   }
-}
-
-.docOriginal pre {
-  white-space: pre-wrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.8rem;
-  background: rgba(100, 116, 139, 0.08);
-  border: 1px solid var(--clearmed-border);
-  border-radius: 8px;
-  padding: 14px;
-  margin: 0;
-  max-height: 260px;
-  overflow-y: auto;
-  color: var(--clearmed-text);
 }
 
 .docTerms ul {
@@ -383,12 +352,6 @@
 // sections -- separate from the :global block above since these need to
 // match the hashed classnames the component actually renders.
 @media print {
-  .docOriginal pre {
-    max-height: none;
-    overflow-y: visible;
-  }
-
-  .docOriginal,
   .docTerms {
     break-inside: avoid;
   }
