@@ -217,6 +217,9 @@
   border-radius: 14px;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
   padding: 24px;
+  // Reserve room below the disclaimer for the absolutely-positioned .docQr
+  // (72px QR + 16px bottom offset + breathing room) so it doesn't overlap it.
+  padding-bottom: 128px;
   margin-bottom: 20px;
   max-width: 700px;
 }
