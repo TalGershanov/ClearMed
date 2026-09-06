@@ -19,7 +19,8 @@ def apply_translations(text, detected_terms, ui_selection, explanation_field):
 	translated_text = text
 	for term in sorted(approved, key=lambda t: t["start"], reverse=True):
 		end = term["end"]
-		translated_text = f"{translated_text[:end]} ({term[explanation_field]}){translated_text[end:]}"
+		explanation = term[explanation_field].rstrip().rstrip(".")
+		translated_text = f"{translated_text[:end]} ({explanation}){translated_text[end:]}"
 	explained_terms_list, seen = [], set()
 	for term in approved:
 		if term["term_name"] not in seen:
