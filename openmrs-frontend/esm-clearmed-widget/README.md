@@ -47,6 +47,80 @@ ahead of the `@openmrs/esm-framework` version it's actually paired with —
 report it to whoever manages that OpenMRS instance; the fix is to align
 those two packages' versions, not something this repo can change.
 
+### Pinned to a moving target: `openmrs`/`esm-framework`/`esm-styleguide`
+
+These three are pinned in `package.json` to an exact **prerelease** version
+(currently `10.0.1-pre.5324`, npm's `next` dist-tag) instead of the normal
+`^10.0.0` (`latest`) range. This is a workaround for the same class of issue
+as the `getLocaleDisplayName` one above, just worse: `dev3.openmrs.org` (the
+demo server `npm start --backend` proxies to, and the one its import map
+always resolves against — `o3.openmrs.org`'s own import map 403s the CLI's
+fetch and silently falls back to `dev3`'s) serves core apps (nav bar, login,
+help menu, ...) built from whatever `next`-tagged build OpenMRS most recently
+pushed. If our pinned version falls behind that, the local `openmrs`
+CLI's app shell doesn't speak the same module-loading protocol (older builds
+use SystemJS, `next` has moved to Webpack Module Federation) and **every**
+core app dies with `does not refer to a federated module`, leaving a
+completely blank page — nothing OpenMRS renders (including the login
+screen) survives.
+
+**If you see that error, or the dev shell is blank:**
+
+1. Open the browser console. A failing module's script URL contains the
+   version OpenMRS is actually running, e.g.
+   `.../10.0.1-pre.5330/openmrs-esm-help-menu-app.js`.
+2. Run `npm run check-openmrs-version` (wraps
+   `scripts/check-openmrs-version.sh`) — it compares that number against
+   what's pinned in `package.json` and, if they differ, rewrites the pin for
+   you automatically.
+3. Follow the script's printed next steps: `npm install` (see the EMFILE
+   warning below — do **not** delete `package-lock.json` first), then fully
+   stop and restart `npm start` (see "must be restarted" warning below).
+
+Because this chases a public demo server's bleeding-edge builds, it *will*
+drift again — there's no permanent fix short of testing against a
+version-locked local OpenMRS instance instead (e.g. the official
+`openmrs-reference-application-3` Docker distro) rather than `dev3`/`o3`.
+
+### EMFILE: too many open files
+
+If `npm start` crashes with `Error: EMFILE: too many open files, watch`,
+resist the urge to just raise `ulimit -n` — that treats a symptom, not the
+cause, and can require an unreasonably high limit to "fix". The real cause
+we hit: running `rm -rf node_modules package-lock.json && npm install`
+throws away this project's **committed, already-deduplicated**
+`package-lock.json` and lets npm re-resolve the whole dependency graph from
+just the loose `^` ranges in `package.json` — with no lockfile to anchor it,
+the fresh resolution can dedupe far worse, inflating `node_modules` enough
+that the dev server's file watcher (`chokidar`) exhausts even a
+generously-raised file-descriptor limit.
+
+Fix: restore the tracked lockfile and do a clean, deterministic install from
+it instead of a fresh resolve:
+
+```bash
+git checkout -- package-lock.json
+rm -rf node_modules dist
+npm ci
+```
+
+When you *do* need to change a dependency version on purpose (e.g. the
+prerelease pin above), use plain `npm install` afterwards — never delete
+`package-lock.json` first — so npm updates only what actually changed
+instead of re-resolving everything from scratch.
+
+### A running dev server must be restarted after any dependency change
+
+`npm start`'s Module Federation "shared module" versions are computed once,
+at startup, from `package.json`/`node_modules` at that instant. Editing
+`src/` hot-reloads live, but changing dependencies (`npm install`, `npm ci`,
+editing `package.json`) does not — a server left running will keep using its
+original, now-stale versions and throw confusing
+`Cannot find module '@openmrs/esm-framework'`-style errors that look like a
+broken install even though `npm ls` shows everything correctly resolved.
+Always fully stop (`Ctrl+C`, or `lsof -ti:8080,8081 | xargs kill` if the
+terminal's gone) and restart `npm start` after any dependency change.
+
 ## Running it standalone
 
 ```bash
@@ -59,8 +133,12 @@ dev shell (default `http://localhost:8080`) against a backend OpenMRS
 instance, e.g.:
 
 ```bash
-npm start -- --backend https://dev3.openmrs.org
+npm start -- --backend https://dev3.openmrs.org --routes routes.registry.fixed.json
 ```
+
+(`--routes routes.registry.fixed.json` works around `o3.openmrs.org`'s
+routes-registry endpoint also 403ing the CLI's fetch — see "Pinned to a
+moving target" above for why `dev3` is used as the backend either way.)
 
 Point `clearmedApiBaseUrl` (via the OpenMRS admin configuration UI, or a
 local config override) at a running ClearMed API — e.g. `http://localhost:8000`
