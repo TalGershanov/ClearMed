@@ -1,4 +1,7 @@
-const API_BASE = "http://localhost:8000";
+// Empty in production (see .env.production) -- the app is served from the
+// same origin as the API, so a relative path is enough. Falls back to the
+// local FastAPI dev server when unset, e.g. for `pnpm dev`.
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const isFormData = options.body instanceof FormData;
