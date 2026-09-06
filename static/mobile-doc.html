@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearMed</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<main class="layout">
+	<section class="content" style="max-width: 700px; margin: 0 auto;">
+
+		<div id="mobile-status" class="card">
+			<p class="card-subtitle center">Loading your document…</p>
+		</div>
+
+		<div id="mobile-doc-wrap" class="hidden">
+			<div class="language-select-row">
+				<label for="doc-language-input">View in language</label>
+				<div class="language-combobox">
+					<input type="text" id="doc-language-input" placeholder="Original" autocomplete="off">
+					<ul class="language-options hidden" id="doc-language-list"></ul>
+				</div>
+			</div>
+
+			<div class="doc-frame" id="doc-frame">
+				<div class="doc-header">
+					<img src="/logo.png" alt="ClearMed" class="doc-logo">
+					<span class="doc-date" id="doc-date"></span>
+				</div>
+				<div class="doc-explanation" id="doc-explanation" dir="auto"></div>
+				<div class="doc-terms">
+					<h4>Selected Terms</h4>
+					<ul id="doc-terms-list"></ul>
+				</div>
+				<p class="doc-disclaimer" id="doc-disclaimer"></p>
+			</div>
+
+			<div class="actions actions-end">
+				<button class="btn btn-primary" id="btn-print">Print / Save</button>
+			</div>
+		</div>
+
+	</section>
+</main>
+
+<script src="/doc-common.js"></script>
+<script src="/mobile-doc.js"></script>
+</body>
+</html>

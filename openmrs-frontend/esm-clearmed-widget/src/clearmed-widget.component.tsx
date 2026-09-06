@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
+import { QRCodeSVG } from "qrcode.react";
 import { useConfig } from "@openmrs/esm-framework";
 import {
   analyseText,
+  createDocumentShare,
   translateText,
   type AnalyseResponse,
   type TranslateResponse,
@@ -41,6 +43,9 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
   const [translating, setTranslating] = useState(false);
   const [editedText, setEditedText] = useState("");
   const [editingManually, setEditingManually] = useState(false);
+
+  const [shareUuid, setShareUuid] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   const canSubmit = visitNotes.trim().length > 0 || recommendation.trim().length > 0;
 
@@ -94,6 +99,8 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
     setTranslateError(null);
     setEditedText("");
     setEditingManually(false);
+    setShareUuid(null);
+    setShareError(null);
   };
 
   // Returns to term selection from the review-translation step -- clears
@@ -108,9 +115,24 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
     setEditingManually(false);
   };
 
-  const approveTranslation = () => {
+  const approveTranslation = async () => {
     setEditingManually(false);
     setStep("result");
+    if (translateResult) {
+      // Best-effort: the document itself doesn't need the QR to render, so a
+      // share-creation failure only surfaces via shareError and never blocks
+      // the result screen (see renderDocContent below).
+      try {
+        const { uuid } = await createDocumentShare(
+          clearmedApiBaseUrl,
+          editedText,
+          translateResult.explained_terms_list,
+        );
+        setShareUuid(uuid);
+      } catch (e) {
+        setShareError(e instanceof Error ? e.message : "Unknown error");
+      }
+    }
   };
 
   // Full reset -- matches static/script.js's btn-new-doc handler. Only
@@ -126,6 +148,8 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
     setTranslateError(null);
     setEditedText("");
     setEditingManually(false);
+    setShareUuid(null);
+    setShareError(null);
   };
 
   const printDoc = () => {
@@ -148,7 +172,6 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
           <img src={logoFull} alt="ClearMed" className={styles.docLogo} />
           <span className={styles.docDate}>{today}</span>
         </div>
-        <h3 className={styles.docTitle}>Patient-Friendly Summary</h3>
 
         <div className={styles.docExplanation}>
           <p dir="auto">{editedText}</p>
@@ -165,9 +188,15 @@ export default function ClearmedWidget({ patientUuid }: ClearmedWidgetProps) {
 
         <p className={styles.docDisclaimer}>
           Term explanations are sourced from MedlinePlus, a service of the U.S. National Library of
-          Medicine (NIH), and were shortened and summarized with the help of AI for readability. This
+          Medicine (NIH), and were shortened with the help of AI for readability. This
           document is not a substitute for professional medical advice.
         </p>
+
+        {shareUuid && (
+          <div className={styles.docQr}>
+            <QRCodeSVG value={`${clearmedApiBaseUrl}/doc/${shareUuid}`} size={72} />
+          </div>
+        )}
       </>
     );
   };

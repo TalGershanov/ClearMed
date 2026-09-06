@@ -9,6 +9,9 @@
   "browserslist": [
     "extends browserslist-config-openmrs"
   ],
+  "dependencies": {
+    "qrcode.react": "^3.2.0"
+  },
   "scripts": {
     "start": "openmrs develop",
     "build": "rspack --mode production",
