@@ -254,10 +254,10 @@ function renderSummary() {
 	box.contentEditable = "false";
 	el("btn-edit-manually").textContent = "✎ Edit manually";
 	box.innerHTML = "";
-	sentencesOf(state.translatedText).forEach((sentence) => {
+	paragraphsOf(state.translatedText).forEach((paragraph) => {
 		const p = document.createElement("p");
 		p.setAttribute("dir", "auto");
-		p.textContent = sentence;
+		p.textContent = paragraph;
 		box.appendChild(p);
 	});
 
@@ -272,9 +272,13 @@ function renderSummary() {
 	});
 }
 
-function sentencesOf(text) {
-	const parts = text.match(/[^.!?]+[.!?]*[)"']*/g);
-	return parts ? parts.map((s) => s.trim()).filter(Boolean) : [text];
+function paragraphsOf(text) {
+	// translated_text is the original document's own text with "(explanation)"
+	// spliced in -- it already carries the original's line breaks (e.g. a
+	// numbered list), so split on those instead of guessing sentence
+	// boundaries, which would fragment "1. Metformin" at its period.
+	const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+	return lines.length ? lines : [text];
 }
 
 el("btn-edit-manually").addEventListener("click", () => {
@@ -306,10 +310,10 @@ function renderExportDoc() {
 
 	const explanation = el("doc-explanation");
 	explanation.innerHTML = "";
-	sentencesOf(state.translatedText).forEach((sentence) => {
+	paragraphsOf(state.translatedText).forEach((paragraph) => {
 		const p = document.createElement("p");
 		p.setAttribute("dir", "auto");
-		p.textContent = sentence;
+		p.textContent = paragraph;
 		explanation.appendChild(p);
 	});
 
