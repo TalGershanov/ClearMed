@@ -261,8 +261,6 @@ function renderSummary() {
 		box.appendChild(p);
 	});
 
-	el("original-box").textContent = state.originalText;
-
 	const list = el("detected-list");
 	list.innerHTML = "";
 	state.explainedTermsList.forEach((term) => {
@@ -316,8 +314,6 @@ function renderExportDoc() {
 		p.textContent = paragraph;
 		explanation.appendChild(p);
 	});
-
-	el("doc-original-text").textContent = state.originalText;
 
 	const list = el("doc-terms-list");
 	list.innerHTML = "";

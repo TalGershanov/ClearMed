@@ -75,7 +75,7 @@
 
 		<!-- Step 3: Patient-Friendly Summary -->
 		<div class="card-grid step-panel hidden" id="panel-3">
-			<div class="card">
+			<div class="card span-all">
 				<div class="card-header-row">
 					<h2 class="card-title">Patient-Friendly Explanation</h2>
 					<button class="link-btn" id="btn-edit-manually">✎ Edit manually</button>
@@ -83,12 +83,7 @@
 				<div class="explanation-box" id="explanation-box" contenteditable="false" dir="auto"></div>
 			</div>
 
-			<div class="card">
-				<h2 class="card-title">Original Medical Document</h2>
-				<pre class="original-box" id="original-box" dir="auto"></pre>
-			</div>
-
-			<div class="card">
+			<div class="card span-all">
 				<h2 class="card-title">Detected Terms</h2>
 				<ul class="detected-list" id="detected-list"></ul>
 			</div>
@@ -112,10 +107,6 @@
 				</div>
 				<h3 class="doc-title">Patient-Friendly Summary</h3>
 				<div class="doc-explanation" id="doc-explanation" dir="auto"></div>
-				<div class="doc-original">
-					<h4>Original Document</h4>
-					<pre id="doc-original-text" dir="auto"></pre>
-				</div>
 				<div class="doc-terms">
 					<h4>Selected Terms</h4>
 					<ul id="doc-terms-list"></ul>
