@@ -4,9 +4,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-OPENMRS_BASE_URL = os.environ.get("OPENMRS_BASE_URL", "").rstrip("/")
-OPENMRS_USERNAME = os.environ.get("OPENMRS_USERNAME")
-OPENMRS_PASSWORD = os.environ.get("OPENMRS_PASSWORD")
+OPENMRS_BASE_URL="https://dev3.openmrs.org/openmrs"
+OPENMRS_USERNAME="admin"
+OPENMRS_PASSWORD="Admin123"
 OPENMRS_TIMEOUT_SECONDS = float(os.environ.get("OPENMRS_TIMEOUT_SECONDS", "10"))
 
 # The OpenMRS deployment allowed to call the /openmrs/* endpoints from a
