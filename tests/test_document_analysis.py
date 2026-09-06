@@ -113,7 +113,10 @@ def test_zero_detected_terms_handled_gracefully(client):
 def test_document_without_extracted_text_cannot_be_analysed(client):
 	register_and_login(client, "analyse_no_text@example.com")
 	folder_id = _first_root_folder_id(client)
-	doc_id = _upload(client, folder_id, _build_textless_pdf(), "scan.pdf", "application/pdf").json()["id"]
+	# pypdf finds nothing, and the OCR fallback (mocked) finds nothing either
+	# -- genuinely no usable text, not an OCR-service failure.
+	with patch("webapp.extraction.ocr.extract_text_from_image", side_effect=ValueError("no text")):
+		doc_id = _upload(client, folder_id, _build_textless_pdf(), "scan.pdf", "application/pdf").json()["id"]
 	assert client.get(f"/documents/{doc_id}").json()["extraction_status"] == "no_text_found"
 
 	resp = client.post(f"/documents/{doc_id}/analyse")

@@ -10,7 +10,7 @@ import { formatFileSize, inputStyle } from "@/lib/ui";
 function extractionPlaceholderMessage(status: ApiDocumentDetail["extraction_status"]): string {
   switch (status) {
     case "no_text_found":
-      return "This document appears to be scanned and requires OCR to extract text.";
+      return "We couldn't find any readable text in this document, even after trying to read it as a photo.";
     case "failed":
       return "Text extraction failed for this document.";
     case "extracted":

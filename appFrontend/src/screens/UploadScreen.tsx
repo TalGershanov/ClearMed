@@ -95,7 +95,12 @@ export function UploadScreen({ folders, onUpload }: {
         {uploading ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
             <Spinner />
-            <p style={{ color: "#7BAAC8", fontFamily: "Outfit, sans-serif", fontWeight: 500 }}>Uploading…</p>
+            <p style={{ color: "#7BAAC8", fontFamily: "Outfit, sans-serif", fontWeight: 500 }}>
+              {/* A JPG/PNG (and occasionally a scanned PDF) is read via OCR
+                  server-side before this request resolves, so it can take a
+                  few extra seconds -- this just sets that expectation. */}
+              {selectedFile && selectedFile.type !== "application/pdf" ? "Reading your document…" : "Uploading…"}
+            </p>
           </div>
         ) : done ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>

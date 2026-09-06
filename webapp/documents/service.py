@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import uuid
 from typing import Optional, Tuple
@@ -66,7 +67,13 @@ async def _read_upload_within_limit(file: UploadFile, max_bytes: int) -> bytes:
 def _extract_text_if_applicable(mime_type: str, data: bytes) -> Tuple[Optional[str], str]:
 	"""Never raises -- any extractor failure is caught here and turned into
 	a FAILED status, so a text-extraction problem can never block or
-	unwind the upload itself (the document row must still get created)."""
+	unwind the upload itself (the document row must still get created).
+
+	This is a plain blocking function (not async) even though the OCR path
+	(webapp/extraction/ocr.py) makes a real network call to Gemini -- callers
+	must run it via asyncio.to_thread (see save_uploaded_document below) so
+	that call doesn't stall the event loop, exactly like server/api.py's own
+	POST /ocr endpoint already does for the same reason."""
 	extractor = get_extractor(mime_type)
 	if extractor is None:
 		return None, ExtractionStatus.PENDING.value
@@ -125,11 +132,12 @@ async def save_uploaded_document(
 	storage = get_storage()
 	storage.save(data, storage_key)  # if this raises, nothing below runs -- no DB row is created
 
-	# Extraction runs synchronously here, on the bytes already in memory, and
-	# never raises out of this function (see _extract_text_if_applicable) --
-	# a text-extraction problem must never prevent the document row itself
-	# from being created (see webapp/extraction/).
-	original_text, extraction_status = _extract_text_if_applicable(mime_type, data)
+	# Extraction runs on the bytes already in memory and never raises out of
+	# this function (see _extract_text_if_applicable) -- a text-extraction
+	# problem must never prevent the document row itself from being created
+	# (see webapp/extraction/). Run off the event loop: the OCR path makes a
+	# real blocking network call to Gemini, so this can take several seconds.
+	original_text, extraction_status = await asyncio.to_thread(_extract_text_if_applicable, mime_type, data)
 
 	document = Document(
 		user_id=user_id,

@@ -1,4 +1,5 @@
 import os
+from unittest.mock import patch
 
 from tests.conftest import register_and_login
 
@@ -58,7 +59,11 @@ def test_upload_valid_pdf(client):
 def test_upload_valid_jpeg(client):
 	register_and_login(client, "docs_jpeg@example.com")
 	folder_id = _first_root_folder_id(client)
-	resp = _upload(client, folder_id, JPEG_BYTES, "photo.jpg", "image/jpeg")
+	# Upload now runs OCR synchronously on any image (see webapp/extraction/) --
+	# mocked here since this test only cares about the upload itself, not
+	# extraction, and must never depend on GEMINI_API_KEY being configured.
+	with patch("webapp.extraction.ocr.extract_text_from_image", side_effect=ValueError("no text")):
+		resp = _upload(client, folder_id, JPEG_BYTES, "photo.jpg", "image/jpeg")
 	assert resp.status_code == 201, resp.text
 	assert resp.json()["mime_type"] == "image/jpeg"
 
@@ -66,7 +71,8 @@ def test_upload_valid_jpeg(client):
 def test_upload_valid_png(client):
 	register_and_login(client, "docs_png@example.com")
 	folder_id = _first_root_folder_id(client)
-	resp = _upload(client, folder_id, PNG_BYTES, "scan.png", "image/png")
+	with patch("webapp.extraction.ocr.extract_text_from_image", side_effect=ValueError("no text")):
+		resp = _upload(client, folder_id, PNG_BYTES, "scan.png", "image/png")
 	assert resp.status_code == 201, resp.text
 	assert resp.json()["mime_type"] == "image/png"
 
