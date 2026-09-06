@@ -4,10 +4,10 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from google.genai import errors as genai_errors
+import httpx
 from log_config import setup_logging
 from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations, init_trie
-from logic.ocr import extract_text_from_image
+from logic.ocr import VisionAPIError, extract_text_from_image
 from logic.term_detectors.hebrew import detect_language_code
 from logic.translator import apply_translations
 from openmrs.client import OpenMRSAPIError, close_openmrs_client, get_openmrs_client
@@ -67,26 +67,26 @@ openmrs_app.add_middleware(
 # the OpenMRS widget can call them cross-origin as /openmrs/analyse and
 # /openmrs/translate, inheriting openmrs_app's CORS scoping above) -- the
 # same handler function is just registered twice, no logic duplicated.
-MAX_OCR_IMAGE_BYTES = 15 * 1024 * 1024  # stays under Gemini's inline-request ceiling once base64-encoded
+MAX_OCR_IMAGE_BYTES = 15 * 1024 * 1024  # stays under Cloud Vision's 20MB request-payload ceiling once base64-encoded
 
 @app.post("/ocr")
 async def ocr_image(image: UploadFile = File(...)):
-	logger.info("extracting text from uploaded image via Gemini")
+	logger.info("extracting text from uploaded image via Cloud Vision")
 	if not image.content_type or not image.content_type.startswith("image/"):
 		raise HTTPException(status_code=400, detail="Uploaded file must be an image.")
 	image_bytes = await image.read()
 	if len(image_bytes) > MAX_OCR_IMAGE_BYTES:
 		raise HTTPException(status_code=413, detail="Image is too large; please use a smaller photo.")
 	try:
-		# generate_content is a blocking call -- run it off the event loop so a
-		# slow Gemini round-trip doesn't stall every other concurrent request.
+		# the Vision REST call is blocking -- run it off the event loop so a
+		# slow round-trip doesn't stall every other concurrent request.
 		text = await asyncio.to_thread(extract_text_from_image, image_bytes, image.content_type)
 	except RuntimeError as e:
 		raise HTTPException(status_code=503, detail=str(e))
 	except ValueError as e:
 		raise HTTPException(status_code=422, detail=str(e))
-	except genai_errors.APIError as e:
-		logger.error("Gemini OCR request failed: %s", e)
+	except (httpx.HTTPError, VisionAPIError) as e:
+		logger.error("Cloud Vision OCR request failed: %s", e)
 		raise HTTPException(status_code=502, detail="OCR service is temporarily unavailable. Please try again.")
 	return {"text": text}
 
