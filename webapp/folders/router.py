@@ -8,8 +8,15 @@ from webapp.core.database import get_db
 from webapp.documents.models import Document
 from webapp.documents.service import list_documents_in_folder
 from webapp.folders.models import Folder
-from webapp.folders.schemas import FolderCreate, FolderDetail, FolderOut, FolderUpdate
-from webapp.folders.service import get_owned_folder_or_404, would_create_cycle
+from webapp.folders.schemas import FolderCreate, FolderDeletionPreview, FolderDetail, FolderOut, FolderUpdate
+from webapp.folders.service import (
+	count_documents_by_folder_ids,
+	count_documents_in_folder,
+	count_folder_subtree_contents,
+	delete_folder_recursive,
+	get_owned_folder_or_404,
+	would_create_cycle,
+)
 from webapp.users.models import User
 
 logger = logging.getLogger("clearmed.webapp.folders")
@@ -17,20 +24,43 @@ logger = logging.getLogger("clearmed.webapp.folders")
 router = APIRouter(prefix="/folders", tags=["folders"])
 
 
+def _to_folder_out(folder: Folder, document_count: int) -> FolderOut:
+	"""document_count isn't a mapped column on Folder, so every response
+	that includes a FolderOut must build it explicitly -- from_attributes
+	can't derive this one from the ORM object."""
+	return FolderOut(
+		id=folder.id,
+		name=folder.name,
+		parent_folder_id=folder.parent_folder_id,
+		color=folder.color,
+		cover_image_path=folder.cover_image_path,
+		created_at=folder.created_at,
+		updated_at=folder.updated_at,
+		document_count=document_count,
+	)
+
+
 @router.get("", response_model=list[FolderOut])
 def list_root_folders(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-	return (
+	folders = (
 		db.query(Folder)
 		.filter(Folder.user_id == current_user.id, Folder.parent_folder_id.is_(None))
 		.order_by(Folder.created_at)
 		.all()
 	)
+	# One grouped query for every root folder's count -- never one query per
+	# folder (see count_documents_by_folder_ids).
+	counts = count_documents_by_folder_ids(db, [f.id for f in folders])
+	return [_to_folder_out(f, counts.get(f.id, 0)) for f in folders]
 
 
 @router.get("/{folder_id}", response_model=FolderDetail)
 def get_folder(folder_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
 	folder = get_owned_folder_or_404(db, current_user.id, folder_id)
 	documents = list_documents_in_folder(db, folder.id)
+	# Same batching for this folder's children -- one grouped query, not one
+	# per child.
+	child_counts = count_documents_by_folder_ids(db, [c.id for c in folder.children])
 	return FolderDetail(
 		id=folder.id,
 		name=folder.name,
@@ -39,7 +69,10 @@ def get_folder(folder_id: int, current_user: User = Depends(get_current_user), d
 		cover_image_path=folder.cover_image_path,
 		created_at=folder.created_at,
 		updated_at=folder.updated_at,
-		children=folder.children,
+		# This folder's own direct-document count -- already fetched above,
+		# no extra query needed.
+		document_count=len(documents),
+		children=[_to_folder_out(c, child_counts.get(c.id, 0)) for c in folder.children],
 		documents=documents,
 	)
 
@@ -63,7 +96,8 @@ def create_folder(payload: FolderCreate, current_user: User = Depends(get_curren
 	db.refresh(folder)
 
 	logger.info("User id=%s created folder id=%s", current_user.id, folder.id)
-	return folder
+	# A brand-new folder is always genuinely empty -- not a placeholder 0.
+	return _to_folder_out(folder, 0)
 
 
 @router.patch("/{folder_id}", response_model=FolderOut)
@@ -105,12 +139,42 @@ def update_folder(
 	db.refresh(folder)
 
 	logger.info("User id=%s updated folder id=%s", current_user.id, folder.id)
-	return folder
+	# Rename/reparent never changes this folder's own document count, but
+	# this is a single-folder response, not a listing -- one query here
+	# doesn't reintroduce N+1.
+	return _to_folder_out(folder, count_documents_in_folder(db, folder.id))
+
+
+@router.get("/{folder_id}/deletion-preview", response_model=FolderDeletionPreview)
+def get_folder_deletion_preview(
+	folder_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+	"""The real, recursive impact of deleting this folder with
+	?recursive=true -- shown to the user before they confirm, never a
+	client-side guess (that would mean either N+1 fetches or an inaccurate
+	number)."""
+	folder = get_owned_folder_or_404(db, current_user.id, folder_id)
+	document_count, subfolder_count = count_folder_subtree_contents(db, folder.id)
+	return FolderDeletionPreview(document_count=document_count, subfolder_count=subfolder_count)
 
 
 @router.delete("/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_folder(folder_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_folder(
+	folder_id: int,
+	recursive: bool = False,
+	current_user: User = Depends(get_current_user),
+	db: Session = Depends(get_db),
+):
 	folder = get_owned_folder_or_404(db, current_user.id, folder_id)
+
+	if recursive:
+		# Explicit opt-in only -- the caller is expected to have already
+		# shown the user the real counts from the deletion-preview endpoint
+		# above and gotten their confirmation. Permanently deletes every
+		# document (DB row + stored file) and every descendant folder.
+		delete_folder_recursive(db, folder)
+		logger.info("User id=%s recursively deleted folder id=%s and its contents", current_user.id, folder_id)
+		return None
 
 	has_children = db.query(Folder.id).filter(Folder.parent_folder_id == folder.id).first() is not None
 	if has_children:

@@ -1,13 +1,16 @@
 from unittest.mock import patch
 
+from logic.translator import apply_translations
 from tests.conftest import register_and_login
 from tests.test_documents import _first_root_folder_id, _upload
 from tests.test_extraction import MALFORMED_PDF_BYTES, _build_pdf, _build_textless_pdf
 
-# Term detection and the OpenAI rewrite are both mocked throughout this file:
-# the trie is never built in tests (see conftest.py), and a real API call
-# must never happen from the test suite. These fixtures mirror the true
-# shape of logic.medical_term_detector.detect_terms_with_explanations()'s
+# Term detection is mocked throughout this file: the trie is never built in
+# tests (see conftest.py). Simplification itself (apply_translations, see
+# logic/translator.py) is a pure local function -- no external API call, so
+# it's never mocked; tests that need an expected simplified value call it
+# directly as the oracle (see _expected_simplified below). These fixtures
+# mirror the true shape of logic.medical_term_detector.detect_terms_with_explanations()'s
 # return value (see logic/medical_term_detector.py), keyed by concept_id
 # in "main_term" -- never by term name.
 A1C_TERM = {
@@ -47,6 +50,14 @@ def _patched_detection(detected_terms):
 		patch("webapp.documents.service.detect_language_code", return_value="en"),
 		patch("webapp.documents.service.detect_terms_with_explanations", return_value=detected_terms),
 	)
+
+
+def _expected_simplified(text, detected_terms, selection):
+	"""The real, deterministic apply_translations output -- used as the
+	expected value instead of a mocked/hand-computed string, so these tests
+	stay correct even if the splice's exact formatting ever changes."""
+	translated_text, _ = apply_translations(text, detected_terms, selection, "short_explanation")
+	return translated_text
 
 
 # --- Analysis ----------------------------------------------------------------
@@ -207,48 +218,43 @@ def _analyse_and_select(client, doc_id, detected_terms, selection=None):
 
 def test_owner_can_simplify_document(client):
 	register_and_login(client, "simplify_owner@example.com")
-	doc_id = _upload_extracted_pdf(client)
+	text = "Patient A1C and hypertension results."
+	doc_id = _upload_extracted_pdf(client, text=text)
 	_analyse_and_select(client, doc_id, [A1C_TERM])
 
-	with patch("webapp.documents.service.simplify_text_with_openai", return_value="Patient's blood sugar test and other results.") as mock_simplify:
-		resp = client.post(f"/documents/{doc_id}/simplify")
+	resp = client.post(f"/documents/{doc_id}/simplify")
 	assert resp.status_code == 200, resp.text
 	body = resp.json()
 	assert body["simplification_status"] == "simplified"
-	assert body["simplified_text"] == "Patient's blood sugar test and other results."
-
-	# Confirms the real explanation-map pipeline (build_explanation_map) ran,
-	# not a hand-rolled substitute -- the approved term's short_explanation
-	# reaches simplify_text_with_openai keyed by term_name, exactly as
-	# /translate does (see logic/translator.py::build_explanation_map).
-	call_args = mock_simplify.call_args
-	assert call_args.args[1] == {"A1C": A1C_TERM["short_explanation"]}
+	# Confirms the real apply_translations pipeline ran (the same mechanical
+	# parenthesis-splice /translate uses, see logic/translator.py) -- not a
+	# mocked substitute.
+	assert body["simplified_text"] == _expected_simplified(text, [A1C_TERM], {"6308": True})
 
 
 def test_simplify_only_uses_approved_terms(client):
 	register_and_login(client, "simplify_partial@example.com")
-	doc_id = _upload_extracted_pdf(client)
+	text = "Patient A1C and hypertension results."
+	doc_id = _upload_extracted_pdf(client, text=text)
 	_analyse_and_select(client, doc_id, [A1C_TERM, BP_TERM], selection={"6308": True, "3877": False})
 
-	with patch("webapp.documents.service.simplify_text_with_openai", return_value="ok") as mock_simplify:
-		client.post(f"/documents/{doc_id}/simplify")
-
-	explanation_map = mock_simplify.call_args.args[1]
-	assert "A1C" in explanation_map
-	assert "Hypertension" not in explanation_map
+	resp = client.post(f"/documents/{doc_id}/simplify")
+	simplified_text = resp.json()["simplified_text"]
+	assert A1C_TERM["short_explanation"].rstrip(".") in simplified_text
+	assert BP_TERM["short_explanation"] not in simplified_text
 
 
 def test_simplified_text_persists_and_shows_in_document_detail(client):
 	register_and_login(client, "simplify_persist@example.com")
-	doc_id = _upload_extracted_pdf(client)
+	text = "Patient A1C and hypertension results."
+	doc_id = _upload_extracted_pdf(client, text=text)
 	_analyse_and_select(client, doc_id, [A1C_TERM])
 
-	with patch("webapp.documents.service.simplify_text_with_openai", return_value="A simplified version."):
-		client.post(f"/documents/{doc_id}/simplify")
+	client.post(f"/documents/{doc_id}/simplify")
 
 	detail = client.get(f"/documents/{doc_id}").json()
 	assert detail["simplification_status"] == "simplified"
-	assert detail["simplified_text"] == "A simplified version."
+	assert detail["simplified_text"] == _expected_simplified(text, [A1C_TERM], {"6308": True})
 	# Original text and analysis must remain untouched by simplification.
 	assert detail["analysis_status"] == "analysed"
 	assert detail["original_text"] is not None
@@ -267,7 +273,7 @@ def test_simplify_failure_preserves_analysis_and_selection(client):
 	doc_id = _upload_extracted_pdf(client)
 	_analyse_and_select(client, doc_id, [A1C_TERM], selection={"6308": True})
 
-	with patch("webapp.documents.service.simplify_text_with_openai", side_effect=RuntimeError("openai down")):
+	with patch("webapp.documents.service.apply_translations", side_effect=RuntimeError("translation failed")):
 		resp = client.post(f"/documents/{doc_id}/simplify")
 	assert resp.status_code == 502
 
@@ -283,10 +289,10 @@ def test_simplify_can_be_retried_after_failure(client):
 	doc_id = _upload_extracted_pdf(client)
 	_analyse_and_select(client, doc_id, [A1C_TERM])
 
-	with patch("webapp.documents.service.simplify_text_with_openai", side_effect=RuntimeError("openai down")):
+	with patch("webapp.documents.service.apply_translations", side_effect=RuntimeError("translation failed")):
 		client.post(f"/documents/{doc_id}/simplify")
 
-	with patch("webapp.documents.service.simplify_text_with_openai", return_value="Recovered simplification."):
+	with patch("webapp.documents.service.apply_translations", return_value=("Recovered simplification.", ["A1C"])):
 		resp = client.post(f"/documents/{doc_id}/simplify")
 	assert resp.status_code == 200
 	assert resp.json()["simplification_status"] == "simplified"
@@ -303,15 +309,16 @@ def test_another_user_cannot_simplify_document(client, second_client):
 	assert resp.status_code == 404
 
 
-def test_zero_selected_terms_still_calls_simplify_with_empty_map(client):
+def test_zero_selected_terms_leaves_text_unchanged(client):
 	register_and_login(client, "simplify_zero_selected@example.com")
-	doc_id = _upload_extracted_pdf(client)
+	text = "Patient A1C and hypertension results."
+	doc_id = _upload_extracted_pdf(client, text=text)
 	_analyse_and_select(client, doc_id, [A1C_TERM], selection={"6308": False})
 
-	with patch("webapp.documents.service.simplify_text_with_openai", return_value="unchanged") as mock_simplify:
-		resp = client.post(f"/documents/{doc_id}/simplify")
+	resp = client.post(f"/documents/{doc_id}/simplify")
 	assert resp.status_code == 200
-	assert mock_simplify.call_args.args[1] == {}
+	# No approved terms -- apply_translations splices nothing in.
+	assert resp.json()["simplified_text"] == text
 
 
 # --- Cross-cutting security --------------------------------------------------
@@ -330,8 +337,7 @@ def test_no_cross_user_data_leakage_in_document_detail(client, second_client):
 	register_and_login(second_client, "leak_b@example.com")
 	doc_id = _upload_extracted_pdf(client, text="Secret A1C content for user A only.")
 	_analyse_and_select(client, doc_id, [A1C_TERM])
-	with patch("webapp.documents.service.simplify_text_with_openai", return_value="Secret simplified text."):
-		client.post(f"/documents/{doc_id}/simplify")
+	client.post(f"/documents/{doc_id}/simplify")
 
 	resp = second_client.get(f"/documents/{doc_id}")
 	assert resp.status_code == 404

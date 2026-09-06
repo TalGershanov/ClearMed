@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchCurrentUser, login as loginRequest, logout as logoutRequest } from "@/api/auth";
-import { analyseDocument, fetchDocument, simplifyDocument, updateTermSelection, uploadDocument } from "@/api/documents";
-import { createFolder as createFolderRequest, fetchFolder, fetchRootFolders } from "@/api/folders";
+import { analyseDocument, deleteDocument, fetchDocument, simplifyDocument, updateDocumentNotes, updateTermSelection, uploadDocument } from "@/api/documents";
+import { createFolder as createFolderRequest, deleteFolder as deleteFolderRequest, fetchFolder, fetchFolderDeletionPreview, fetchRootFolders } from "@/api/folders";
 import { AppBar } from "@/components/AppBar";
 import { BottomNav } from "@/components/BottomNav";
 import { DocumentDetailScreen } from "@/screens/DocumentDetailScreen";
@@ -40,6 +40,10 @@ export default function App() {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [rootFolders, setRootFolders] = useState<ApiFolder[]>([]);
   const [currentFolder, setCurrentFolder] = useState<ApiFolderDetail | null>(null);
+  // Where "terms-found" should return to on back/success: the upload flow
+  // reaches it before Document Detail ever renders, while reopening "View
+  // Detected Terms" from an already-analysed document should return there.
+  const [termsFoundReturnScreen, setTermsFoundReturnScreen] = useState<"upload" | "document">("upload");
 
   async function loadRootFolders() {
     try {
@@ -167,6 +171,18 @@ export default function App() {
     setNavPath([{ id: folder.id, name: folder.name }]);
     setSelectedDoc(uploaded);
     setSelectedDocDetail(analysed);
+    setTermsFoundReturnScreen("upload");
+    setScreen("terms-found");
+  }
+
+  // Reopens the real Terms Found screen for an already-analysed document, so
+  // the user can review/change their persisted selection and simplify again.
+  // Reuses the exact same screen/state/endpoints as the post-upload flow --
+  // no separate detected-terms state, no re-fetch (selectedDocDetail already
+  // carries the real detected_terms/term_selection from GET /documents/{id}).
+  function viewDetectedTerms() {
+    if (!selectedDoc || !selectedDocDetail) return;
+    setTermsFoundReturnScreen("document");
     setScreen("terms-found");
   }
 
@@ -193,6 +209,49 @@ export default function App() {
     setScreen("document");
   }
 
+  // Persists the note for the currently open document; throwing lets
+  // DocumentDetailScreen keep the user's unsaved text and show the error.
+  async function saveDocumentNote(notes: string): Promise<void> {
+    if (!selectedDoc) return;
+    const updated = await updateDocumentNotes(selectedDoc.id, notes);
+    setSelectedDocDetail(updated);
+  }
+
+  // Deletes the currently open document, then reuses the existing
+  // navigateTo() breadcrumb navigation to land back on its parent folder --
+  // that already clears selectedDoc/selectedDocDetail and refetches the
+  // folder (picking up the now-accurate document_count), so the deleted
+  // document disappears from the list with no separate refresh logic.
+  // Throwing (e.g. a network failure) leaves DeleteButton's confirmation
+  // modal open with the error shown and the document untouched.
+  async function deleteCurrentDocument(): Promise<void> {
+    if (!selectedDoc) return;
+    await deleteDocument(selectedDoc.id);
+    await navigateTo(navPath.length - 1);
+  }
+
+  // Fetches the real, recursive impact of deleting the currently open
+  // folder, so DeleteButton can warn the user with the actual counts before
+  // they confirm a cascading delete -- never a guessed/client-computed number.
+  async function getCurrentFolderDeletionImpact(): Promise<{ documentCount: number; subfolderCount: number }> {
+    if (!currentFolder) return { documentCount: 0, subfolderCount: 0 };
+    const preview = await fetchFolderDeletionPreview(currentFolder.id);
+    return { documentCount: preview.document_count, subfolderCount: preview.subfolder_count };
+  }
+
+  // Deletes the currently open folder -- recursively, since the
+  // confirmation the user just went through (via
+  // getCurrentFolderDeletionImpact above) already showed them exactly what
+  // that entails when the folder wasn't empty. Then navigates to its parent
+  // (or root, if it was a root folder) reusing the same navigateTo()
+  // refetch as document deletion. A failure throws here, so DeleteButton
+  // shows the real error and nothing is removed from the UI.
+  async function deleteCurrentFolder(): Promise<void> {
+    if (!currentFolder) return;
+    await deleteFolderRequest(currentFolder.id, true);
+    await navigateTo(navPath.length - 2);
+  }
+
   // TermsFoundScreen brings its own full-screen header/back-button/bottom bar
   // (see the component), so -- like "login" -- it renders standalone, not
   // nested inside the shared AppBar/BottomNav shell.
@@ -212,7 +271,8 @@ export default function App() {
             docName={selectedDoc?.name ?? "Document"}
             terms={selectedDocDetail.detected_terms ?? []}
             initialSelection={selectedDocDetail.term_selection ?? {}}
-            onBack={() => setScreen("upload")}
+            submitLabel={selectedDocDetail.simplification_status === "simplified" ? "Simplify Again" : "Simplify Document"}
+            onBack={() => setScreen(termsFoundReturnScreen)}
             onSelectionChange={updateSelection}
             onSimplify={simplifyAndOpenDocument}
           />
@@ -242,13 +302,22 @@ export default function App() {
                   onOpenFolder={drillInto}
                   onOpenDoc={openDoc}
                   onCreateFolder={createChildFolder}
+                  onDeleteFolder={deleteCurrentFolder}
+                  onGetFolderDeletionImpact={getCurrentFolderDeletionImpact}
                 />
               )}
               {screen === "upload" && (
                 <UploadScreen folders={rootFolders} onUpload={uploadAndAnalyse} />
               )}
               {screen === "document" && selectedDoc && (
-                <DocumentDetailScreen doc={selectedDoc} detail={selectedDocDetail} onRetrySimplify={simplifyAndOpenDocument} />
+                <DocumentDetailScreen
+                  doc={selectedDoc}
+                  detail={selectedDocDetail}
+                  onRetrySimplify={simplifyAndOpenDocument}
+                  onViewDetectedTerms={viewDetectedTerms}
+                  onSaveNote={saveDocumentNote}
+                  onDeleteDocument={deleteCurrentDocument}
+                />
               )}
             </div>
 

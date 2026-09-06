@@ -54,6 +54,11 @@ class FolderOut(BaseModel):
 	cover_image_path: Optional[str]
 	created_at: datetime
 	updated_at: datetime
+	# Documents directly assigned to this folder only -- never recursive into
+	# child folders (see webapp/folders/service.py::count_documents_by_folder_ids).
+	# Not a mapped column on Folder, so every endpoint returning a FolderOut
+	# must construct it explicitly (from_attributes can't derive this one).
+	document_count: int
 
 
 class FolderDetail(FolderOut):
@@ -62,3 +67,13 @@ class FolderDetail(FolderOut):
 	# included here; they're returned when that subfolder itself is opened
 	# (see webapp/folders/router.py::get_folder).
 	documents: list[DocumentOut] = Field(default_factory=list)
+
+
+class FolderDeletionPreview(BaseModel):
+	"""GET /folders/{id}/deletion-preview -- the real, recursive impact of
+	deleting this folder with ?recursive=true, shown to the user before they
+	confirm. Distinct from FolderOut.document_count, which is deliberately
+	direct-only."""
+
+	document_count: int
+	subfolder_count: int

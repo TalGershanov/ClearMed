@@ -13,6 +13,9 @@ export interface ApiFolder {
   cover_image_path: string | null;
   created_at: string;
   updated_at: string;
+  // Documents directly assigned to this folder only -- never recursive into
+  // child folders.
+  document_count: number;
 }
 
 // Mirrors webapp/documents/schemas.py::DocumentOut -- used in folder
@@ -60,12 +63,23 @@ export interface ApiDocumentDetail extends ApiDocument {
   term_selection: Record<string, boolean> | null;
   simplification_status: SimplificationStatus;
   simplified_text: string | null;
+  // Freeform personal note the owner attaches to this document. Independent
+  // of the ClearMed pipeline above.
+  notes: string | null;
 }
 
 // Mirrors webapp/folders/schemas.py::FolderDetail
 export interface ApiFolderDetail extends ApiFolder {
   children: ApiFolder[];
   documents: ApiDocument[];
+}
+
+// Mirrors webapp/folders/schemas.py::FolderDeletionPreview -- the real,
+// recursive impact of deleting a folder with ?recursive=true. Distinct from
+// ApiFolder.document_count, which is deliberately direct-only.
+export interface FolderDeletionPreview {
+  document_count: number;
+  subfolder_count: number;
 }
 
 export type Screen = "login" | "upload" | "library" | "folder" | "document" | "terms-found";

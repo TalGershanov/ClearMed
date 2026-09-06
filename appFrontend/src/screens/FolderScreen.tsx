@@ -1,16 +1,23 @@
 import { useState } from "react";
 import type { ApiDocument, ApiFolder, ApiFolderDetail } from "@/types";
+import DeleteButton from "@/components/DeleteButton";
 import { DocumentRow } from "@/components/DocumentRow";
 import { EmptyMsg } from "@/components/EmptyMsg";
 import { FolderCard } from "@/components/FolderCard";
 import { NewFolderForm } from "@/components/NewFolderForm";
 import { FolderPlusIcon } from "@/components/icons";
 
-export function FolderScreen({ folder, onOpenFolder, onOpenDoc, onCreateFolder }: {
+export function FolderScreen({ folder, onOpenFolder, onOpenDoc, onCreateFolder, onDeleteFolder, onGetFolderDeletionImpact }: {
   folder: ApiFolderDetail;
   onOpenFolder: (folder: ApiFolder) => void;
   onOpenDoc: (document: ApiDocument) => void;
   onCreateFolder: (name: string, color: string) => Promise<void>;
+  // Deletes this currently-open folder (and, if it has contents, everything
+  // inside it -- see onGetFolderDeletionImpact) and navigates up on success.
+  onDeleteFolder: () => Promise<void>;
+  // Fetches the real, recursive count of documents/subfolders this folder
+  // contains, shown in DeleteButton's confirmation before the user commits.
+  onGetFolderDeletionImpact: () => Promise<{ documentCount: number; subfolderCount: number }>;
 }) {
   const [showNewFolder, setShowNewFolder] = useState(false);
 
@@ -46,7 +53,7 @@ export function FolderScreen({ folder, onOpenFolder, onOpenDoc, onCreateFolder }
           <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 11, fontWeight: 600, color: "#9B9390", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 10 }}>Folders</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 }}>
             {subfolders.map(sub => (
-              <FolderCard key={sub.id} folder={sub} docCount={0} onClick={() => onOpenFolder(sub)} />
+              <FolderCard key={sub.id} folder={sub} docCount={sub.document_count} onClick={() => onOpenFolder(sub)} />
             ))}
           </div>
         </>
@@ -61,6 +68,11 @@ export function FolderScreen({ folder, onOpenFolder, onOpenDoc, onCreateFolder }
           </div>
         </>
       )}
+
+      {/* Danger zone */}
+      <div style={{ marginTop: 18 }}>
+        <DeleteButton type="folder" name={folder.name} onDelete={onDeleteFolder} getDeletionImpact={onGetFolderDeletionImpact} />
+      </div>
     </div>
   );
 }

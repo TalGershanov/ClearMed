@@ -16,7 +16,7 @@ from webapp.storage import get_storage
 # implementation, never an HTTP call to our own API.
 from logic.medical_term_detector import build_ui_selection, detect_terms_with_explanations
 from logic.term_detectors.hebrew import detect_language_code
-from logic.translator import build_explanation_map, simplify_text_with_openai
+from logic.translator import apply_translations
 
 # Same explanation field /translate uses (see server/api.py::translate_text) --
 # keeping this in one place means both endpoints stay consistent by construction.
@@ -218,11 +218,26 @@ def update_term_selection(db: Session, document: Document, term_selection: dict)
 	return document
 
 
+def update_document_notes(db: Session, document: Document, notes: str) -> Document:
+	"""Independent of analysis/simplification -- a note can be saved on any
+	document regardless of pipeline state, and never touches those fields."""
+	document.notes = notes
+	db.commit()
+	db.refresh(document)
+	return document
+
+
 def simplify_document(db: Session, document: Document) -> Document:
-	"""Runs the same build_explanation_map + simplify_text_with_openai pipeline
-	/translate uses, against this document's persisted detected_terms and
-	term_selection. Freely re-callable (no "already simplified" guard) so the
-	user can change their selection and simplify again, or just retry.
+	"""Runs the same apply_translations pipeline /translate uses (see
+	logic/translator.py), against this document's persisted detected_terms
+	and term_selection. Freely re-callable (no "already simplified" guard) so
+	the user can change their selection and simplify again, or just retry.
+
+	document.detected_terms is stored verbatim from
+	detect_terms_with_explanations() (see analyse_document below) -- one
+	entry per text occurrence, exactly the shape apply_translations expects
+	for its own position-based splicing, the same shape /translate's handler
+	re-detects fresh from request.text.
 
 	analysis_status/detected_terms/term_selection/original_text are never
 	touched here -- only simplification_status/simplified_text change, so a
@@ -232,11 +247,10 @@ def simplify_document(db: Session, document: Document) -> Document:
 
 	try:
 		selection = document.term_selection or {}
-		explanation_map, _explained_terms = build_explanation_map(
-			document.detected_terms, selection, _EXPLANATION_FIELD
+		translated_text, explained_terms_list = apply_translations(
+			document.original_text, document.detected_terms, selection, _EXPLANATION_FIELD
 		)
-		simplified_text = simplify_text_with_openai(document.original_text, explanation_map)
-		document.simplified_text = simplified_text
+		document.simplified_text = translated_text
 		document.simplification_status = SimplificationStatus.SIMPLIFIED.value
 		db.commit()
 	except Exception:
@@ -251,7 +265,7 @@ def simplify_document(db: Session, document: Document) -> Document:
 
 	db.refresh(document)
 	logger.info(
-		"Simplified document id=%s using %d approved explanation(s)", document.id, len(explanation_map)
+		"Simplified document id=%s using %d approved explanation(s)", document.id, len(explained_terms_list)
 	)
 	return document
 

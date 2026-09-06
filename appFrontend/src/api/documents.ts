@@ -51,3 +51,21 @@ export async function simplifyDocument(id: number): Promise<ApiDocumentDetail> {
   if (!res.ok) throw new Error(await extractErrorMessage(res));
   return res.json();
 }
+
+// Persists the user's personal note on this document. Independent of the
+// ClearMed pipeline -- callable regardless of analysis/simplification state.
+export async function updateDocumentNotes(id: number, notes: string): Promise<ApiDocumentDetail> {
+  const res = await apiFetch(`/documents/${id}/notes`, {
+    method: "PATCH",
+    body: JSON.stringify({ notes }),
+  });
+  if (!res.ok) throw new Error(await extractErrorMessage(res));
+  return res.json();
+}
+
+// Unconditional (no "has children" concept for a document) -- deletes the DB
+// row and the stored file. 204 No Content on success.
+export async function deleteDocument(id: number): Promise<void> {
+  const res = await apiFetch(`/documents/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await extractErrorMessage(res));
+}

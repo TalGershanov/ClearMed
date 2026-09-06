@@ -34,12 +34,9 @@ class AnalysisStatus(str, enum.Enum):
 
 class SimplificationStatus(str, enum.Enum):
 	NOT_SIMPLIFIED = "not_simplified"
-	# The pipeline ran to completion. Note this does NOT distinguish a real
-	# OpenAI rewrite from simplify_text_with_openai's own internal "return
-	# original_text unchanged" fallback on API failure -- that fallback is
-	# that function's existing, intentional contract (see logic/translator.py),
-	# not something this layer reinterprets. FAILED below is reserved for a
-	# failure in *this* layer (e.g. a DB error), not an OpenAI-side hiccup.
+	# The pipeline (apply_translations, see logic/translator.py) ran to
+	# completion. FAILED below is reserved for a failure in *this* layer
+	# (e.g. a DB error or an exception from apply_translations itself).
 	SIMPLIFIED = "simplified"
 	FAILED = "failed"
 
@@ -97,3 +94,8 @@ class Document(Base):
 		String(32), nullable=False, server_default=SimplificationStatus.NOT_SIMPLIFIED.value
 	)
 	simplified_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+	# Freeform personal note the owner attaches to this document. Independent
+	# of the ClearMed pipeline above -- never read or written by analyse/
+	# simplify/selection logic.
+	notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

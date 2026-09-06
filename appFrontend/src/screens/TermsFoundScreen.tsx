@@ -9,13 +9,16 @@ function Spinner() {
   return <div style={{ width: 20, height: 20, border: "2.5px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />;
 }
 
-export default function TermsFoundScreen({ docName, terms, initialSelection, onBack, onSelectionChange, onSimplify }: {
+export default function TermsFoundScreen({ docName, terms, initialSelection, submitLabel = "Simplify Document", onBack, onSelectionChange, onSimplify }: {
   docName: string;
   // Real ClearMed-detected terms for this document (may be empty -- handled
   // gracefully below, never replaced with invented content).
   terms: DetectedTerm[];
   // Persisted selection, keyed by concept_id (DetectedTerm.main_term).
   initialSelection: Record<string, boolean>;
+  // "Simplify Again" when reopening an already-simplified document,
+  // "Simplify Document" for the first-time post-upload flow.
+  submitLabel?: string;
   onBack: () => void;
   // Called (best-effort, fire-and-forget) whenever the selection changes, so
   // it survives a refresh/reopen.
@@ -174,7 +177,7 @@ export default function TermsFoundScreen({ docName, terms, initialSelection, onB
               display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
             }}
           >
-            {simplifying ? <><Spinner />Simplifying…</> : "Simplify Document"}
+            {simplifying ? <><Spinner />Simplifying…</> : submitLabel}
           </button>
         </div>
 

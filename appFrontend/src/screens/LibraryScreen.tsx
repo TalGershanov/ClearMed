@@ -49,7 +49,7 @@ export function LibraryScreen({ docs, folders, onOpenFolder, onCreateFolder }: {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {folders.length === 0 && !showNew && <EmptyMsg text="No folders yet" />}
             {folders.map(folder => (
-              <FolderCard key={folder.id} folder={folder} docCount={docs.filter(d => d.folder === folder.name).length} onClick={() => onOpenFolder(folder)} />
+              <FolderCard key={folder.id} folder={folder} docCount={folder.document_count} onClick={() => onOpenFolder(folder)} />
             ))}
           </div>
         </>

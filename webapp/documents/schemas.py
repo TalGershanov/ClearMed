@@ -37,9 +37,20 @@ class DocumentDetail(DocumentOut):
 	simplification_status: str
 	simplified_text: Optional[str] = None
 
+	# Freeform personal note the owner attaches to this document. Independent
+	# of the ClearMed pipeline above.
+	notes: Optional[str] = None
+
 
 class TermSelectionUpdate(BaseModel):
 	"""Body for PATCH /documents/{id}/selection -- always the full current
 	selection, keyed by concept_id (main_term), never by term_name."""
 
 	term_selection: Dict[str, bool]
+
+
+class NoteUpdate(BaseModel):
+	"""Body for PATCH /documents/{id}/notes -- always the full current note
+	text; an empty string clears it."""
+
+	notes: str

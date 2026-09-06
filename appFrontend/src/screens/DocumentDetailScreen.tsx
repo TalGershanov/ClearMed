@@ -1,8 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ApiDocument, ApiDocumentDetail } from "@/types";
+import DeleteButton from "@/components/DeleteButton";
 import { Field } from "@/components/Field";
 import { NoteIcon, PDFIcon, ScanDocIcon, ShareIcon, Spinner, SparkIcon } from "@/components/icons";
+import TermsButton from "@/components/TermsButton";
 import { formatFileSize, inputStyle } from "@/lib/ui";
+
+// apply_translations (logic/translator.py) splices each approved term's
+// explanation in as "<term> (<explanation>)" right after the term itself --
+// bolding every parenthesized segment highlights exactly the added
+// explanation text, purely a rendering choice (simplified_text itself stays
+// the same plain string from the API).
+function renderSimplifiedText(text: string) {
+  return text.split(/(\([^()]*\))/g).map((segment, i) =>
+    segment.startsWith("(") && segment.endsWith(")") ? <strong key={i}>{segment}</strong> : segment,
+  );
+}
 
 // The "Original" tab shows real extracted text (Phase 4). "Plain Language"
 // has no real ClearMed processing yet -- it always shows an honest
@@ -21,13 +34,25 @@ function extractionPlaceholderMessage(status: ApiDocumentDetail["extraction_stat
   }
 }
 
-export function DocumentDetailScreen({ doc, detail, onRetrySimplify }: {
+export function DocumentDetailScreen({ doc, detail, onRetrySimplify, onViewDetectedTerms, onSaveNote, onDeleteDocument }: {
   doc: ApiDocument;
   detail: ApiDocumentDetail | null;
   // Re-runs the real simplification pipeline for this document (also used
   // for the very first simplify, since Terms Found only starts it -- a
   // failure there lands the user right back here with a retry option).
   onRetrySimplify: () => Promise<void>;
+  // Reopens the real Terms Found screen (with this document's persisted
+  // detected terms + selection) so the user can change their selection and
+  // simplify again.
+  onViewDetectedTerms: () => void;
+  // Persists the note text for this document; throwing keeps the user's
+  // unsaved text in the textarea and surfaces an error, same pattern as
+  // onRetrySimplify.
+  onSaveNote: (notes: string) => Promise<void>;
+  // Deletes this document via the real backend endpoint and navigates back
+  // to its folder on success; throwing keeps DeleteButton's confirmation
+  // modal open with the error shown, and the document stays in the UI.
+  onDeleteDocument: () => Promise<void>;
 }) {
   const [tab, setTab] = useState<"original" | "plain">("original");
   const [note, setNote] = useState("");
@@ -36,6 +61,32 @@ export function DocumentDetailScreen({ doc, detail, onRetrySimplify }: {
   const [shareEmail, setShareEmail] = useState("");
   const [simplifying, setSimplifying] = useState(false);
   const [simplifyError, setSimplifyError] = useState<string | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [noteSaved, setNoteSaved] = useState(false);
+
+  // Only re-syncs from the persisted value (on load, on switching documents,
+  // or right after our own successful save) -- never overwrites text the
+  // user is mid-typing just because some unrelated detail refresh happened.
+  useEffect(() => {
+    setNote(detail?.notes ?? "");
+    setNoteError(null);
+    setNoteSaved(false);
+  }, [doc.id, detail?.notes]);
+
+  async function handleSaveNote() {
+    setSavingNote(true);
+    setNoteError(null);
+    setNoteSaved(false);
+    try {
+      await onSaveNote(note);
+      setNoteSaved(true);
+    } catch (err) {
+      setNoteError(err instanceof Error ? err.message : "Could not save your note. Please try again.");
+    } finally {
+      setSavingNote(false);
+    }
+  }
 
   const typeLabel = doc.mime_type === "application/pdf" ? "PDF"
     : doc.mime_type === "image/jpeg" ? "JPEG image"
@@ -82,8 +133,15 @@ export function DocumentDetailScreen({ doc, detail, onRetrySimplify }: {
     }
     if (detail.simplification_status === "simplified" && detail.simplified_text) {
       return (
-        <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, color: "#2C2420", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 420, overflowY: "auto" }}>
-          {detail.simplified_text}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {detail.analysis_status === "analysed" && (
+            <div>
+              <TermsButton onClick={onViewDetectedTerms} />
+            </div>
+          )}
+          <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, color: "#2C2420", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 420, overflowY: "auto" }}>
+            {renderSimplifiedText(detail.simplified_text)}
+          </div>
         </div>
       );
     }
@@ -168,8 +226,27 @@ export function DocumentDetailScreen({ doc, detail, onRetrySimplify }: {
       {showNotes && (
         <div style={{ background: "#fff", borderRadius: 18, padding: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.05)", marginBottom: 14 }}>
           <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 14, fontWeight: 700, color: "#2C2420", marginBottom: 10 }}>Notes</p>
-          <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Add personal notes…" rows={4} style={{ width: "100%", padding: "11px 13px", fontFamily: "Outfit, sans-serif", fontSize: 14, color: "#2C2420", background: "#F9F7F5", border: "1.5px solid #EDE9E5", borderRadius: 11, resize: "none", outline: "none" }} />
-          <button style={{ marginTop: 10, padding: "9px 20px", background: "#7BAAC8", color: "#fff", border: "none", borderRadius: 9, fontFamily: "Outfit, sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save note</button>
+          <textarea
+            value={note}
+            onChange={e => { setNote(e.target.value); setNoteSaved(false); }}
+            placeholder="Add personal notes…"
+            rows={4}
+            style={{ width: "100%", padding: "11px 13px", fontFamily: "Outfit, sans-serif", fontSize: 14, color: "#2C2420", background: "#F9F7F5", border: "1.5px solid #EDE9E5", borderRadius: 11, resize: "none", outline: "none" }}
+          />
+          {noteError && <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 12, color: "#E07B55", marginTop: 8 }}>{noteError}</p>}
+          {noteSaved && !noteError && <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 12, color: "#7BAAC8", marginTop: 8 }}>Saved</p>}
+          <button
+            onClick={handleSaveNote}
+            disabled={savingNote}
+            style={{
+              marginTop: 10, display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "9px 20px", background: savingNote ? "#AFC7D8" : "#7BAAC8", color: "#fff",
+              border: "none", borderRadius: 9, fontFamily: "Outfit, sans-serif", fontSize: 13, fontWeight: 600,
+              cursor: savingNote ? "not-allowed" : "pointer",
+            }}
+          >
+            {savingNote ? <><Spinner />Saving…</> : "Save note"}
+          </button>
         </div>
       )}
 
@@ -186,6 +263,11 @@ export function DocumentDetailScreen({ doc, detail, onRetrySimplify }: {
           </div>
         </div>
       )}
+
+      {/* Danger zone */}
+      <div style={{ marginTop: 14 }}>
+        <DeleteButton type="document" name={doc.name} onDelete={onDeleteDocument} />
+      </div>
     </div>
   );
 }

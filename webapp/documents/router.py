@@ -6,13 +6,14 @@ from sqlalchemy.orm import Session
 
 from webapp.auth.deps import get_current_user
 from webapp.core.database import get_db
-from webapp.documents.schemas import DocumentDetail, DocumentOut, TermSelectionUpdate
+from webapp.documents.schemas import DocumentDetail, DocumentOut, NoteUpdate, TermSelectionUpdate
 from webapp.documents.service import (
 	analyse_document,
 	delete_document_and_file,
 	get_owned_document_or_404,
 	save_uploaded_document,
 	simplify_document,
+	update_document_notes,
 	update_term_selection,
 )
 from webapp.folders.service import get_owned_folder_or_404
@@ -76,3 +77,14 @@ def simplify_document_endpoint(
 ):
 	document = get_owned_document_or_404(db, current_user.id, document_id)
 	return simplify_document(db, document)
+
+
+@router.patch("/{document_id}/notes", response_model=DocumentDetail)
+def update_notes_endpoint(
+	document_id: int,
+	payload: NoteUpdate,
+	current_user: User = Depends(get_current_user),
+	db: Session = Depends(get_db),
+):
+	document = get_owned_document_or_404(db, current_user.id, document_id)
+	return update_document_notes(db, document, payload.notes)
