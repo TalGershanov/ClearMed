@@ -7,7 +7,7 @@ export interface ConfigSchema {
 export const configSchema = {
   clearmedApiBaseUrl: {
     _type: Type.String,
-    _default: "https://clearmed.duckdns.org",
+    _default: "https://clearmedsys.duckdns.org",
     _description: "Base URL of the external ClearMed FastAPI backend",
   },
 };
