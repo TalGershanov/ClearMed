@@ -1,20 +1,28 @@
 import { useEffect, useState } from "react";
-import type { ApiDocument, ApiDocumentDetail } from "@/types";
+import type { ApiDocument, ApiDocumentDetail, DetectedTerm } from "@/types";
 import DeleteButton from "@/components/DeleteButton";
 import { Field } from "@/components/Field";
 import { NoteIcon, PDFIcon, ScanDocIcon, ShareIcon, Spinner, SparkIcon } from "@/components/icons";
 import TermsButton from "@/components/TermsButton";
+import TranslateButton from "@/components/TranslateButton";
+import { renderSimplifiedText } from "@/lib/renderSimplifiedText";
 import { formatFileSize, inputStyle } from "@/lib/ui";
 
-// apply_translations (logic/translator.py) splices each approved term's
-// explanation in as "<term> (<explanation>)" right after the term itself --
-// bolding every parenthesized segment highlights exactly the added
-// explanation text, purely a rendering choice (simplified_text itself stays
-// the same plain string from the API).
-function renderSimplifiedText(text: string) {
-  return text.split(/(\([^()]*\))/g).map((segment, i) =>
-    segment.startsWith("(") && segment.endsWith(")") ? <strong key={i}>{segment}</strong> : segment,
-  );
+// The list of explained term names the real /translate-document pipeline
+// would have used -- derived from this document's own persisted
+// detected_terms + term_selection (never re-fetched), unique by main_term in
+// first-seen order, mirroring apply_translations' own explained_terms_list
+// (logic/translator.py) and TermsFoundScreen's dedup exactly.
+function explainedTermNames(detectedTerms: DetectedTerm[], termSelection: Record<string, boolean>): string[] {
+  const seenTerms = new Set<string>();
+  const names: string[] = [];
+  for (const term of detectedTerms) {
+    if (termSelection[term.main_term] && !seenTerms.has(term.main_term)) {
+      seenTerms.add(term.main_term);
+      names.push(term.term_name);
+    }
+  }
+  return names;
 }
 
 // The "Original" tab shows real extracted text (Phase 4). "Plain Language"
@@ -135,8 +143,12 @@ export function DocumentDetailScreen({ doc, detail, onRetrySimplify, onViewDetec
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {detail.analysis_status === "analysed" && (
-            <div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               <TermsButton onClick={onViewDetectedTerms} />
+              <TranslateButton
+                explanationText={detail.simplified_text}
+                explainedTermsList={explainedTermNames(detail.detected_terms ?? [], detail.term_selection ?? {})}
+              />
             </div>
           )}
           <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, color: "#2C2420", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 420, overflowY: "auto" }}>

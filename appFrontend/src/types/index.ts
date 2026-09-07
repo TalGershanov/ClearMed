@@ -82,6 +82,20 @@ export interface FolderDeletionPreview {
   subfolder_count: number;
 }
 
+// Mirrors GET /languages's response shape (server/api.py -> logic/document_translation.py::list_supported_languages).
+export interface SupportedLanguage {
+  code: string;
+  name: string;
+}
+
+// Mirrors POST /translate-document's response shape (server/api.py -> logic/document_translation.py::translate_document_fields).
+// Stateless -- never tied to a specific document id, so this is never persisted.
+export interface DocumentTranslation {
+  explanation_text: string;
+  explained_terms_list: string[];
+  disclaimer: string;
+}
+
 export type Screen = "login" | "upload" | "library" | "folder" | "document" | "terms-found";
 
 // Mock documents, used only by the Library search box -- no backend
