@@ -1,15 +1,16 @@
 from webapp.core import config
 
 
-def _register(client, email="patient@example.com", password="supersecret123"):
-	return client.post("/auth/register", json={"email": email, "password": password})
+def _register(client, email="patient@example.com", password="supersecret123", name="Test Patient"):
+	return client.post("/auth/register", json={"email": email, "name": name, "password": password})
 
 
 def test_register_creates_user_with_normalized_email(client):
-	resp = _register(client, email="Patient@Example.com")
+	resp = _register(client, email="Patient@Example.com", name="Pat Ient")
 	assert resp.status_code == 201
 	body = resp.json()
 	assert body["email"] == "patient@example.com"
+	assert body["name"] == "Pat Ient"
 	assert "id" in body
 	assert "created_at" in body
 	assert "password" not in body
@@ -23,12 +24,17 @@ def test_register_rejects_duplicate_email_case_insensitive(client):
 
 
 def test_register_rejects_short_password(client):
-	resp = client.post("/auth/register", json={"email": "short@example.com", "password": "abc123"})
+	resp = client.post("/auth/register", json={"email": "short@example.com", "name": "Short Pw", "password": "abc123"})
 	assert resp.status_code == 422
 
 
 def test_register_rejects_invalid_email(client):
-	resp = client.post("/auth/register", json={"email": "not-an-email", "password": "supersecret123"})
+	resp = client.post("/auth/register", json={"email": "not-an-email", "name": "Bad Email", "password": "supersecret123"})
+	assert resp.status_code == 422
+
+
+def test_register_rejects_blank_name(client):
+	resp = client.post("/auth/register", json={"email": "blank-name@example.com", "name": "   ", "password": "supersecret123"})
 	assert resp.status_code == 422
 
 

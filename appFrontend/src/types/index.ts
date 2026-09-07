@@ -1,6 +1,8 @@
 export interface ApiUser {
   id: number;
   email: string;
+  // null only for accounts registered before this field existed.
+  name: string | null;
   created_at: string;
 }
 
@@ -96,7 +98,7 @@ export interface DocumentTranslation {
   disclaimer: string;
 }
 
-export type Screen = "login" | "upload" | "library" | "folder" | "document" | "terms-found";
+export type Screen = "login" | "signup" | "upload" | "library" | "folder" | "document" | "terms-found";
 
 // Mock documents, used only by the Library search box -- no backend
 // document search exists yet (out of scope for now).

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchCurrentUser, login as loginRequest, logout as logoutRequest } from "@/api/auth";
+import { fetchCurrentUser, login as loginRequest, logout as logoutRequest, register as registerRequest } from "@/api/auth";
 import { analyseDocument, deleteDocument, fetchDocument, simplifyDocument, updateDocumentNotes, updateTermSelection, uploadDocument } from "@/api/documents";
 import { createFolder as createFolderRequest, deleteFolder as deleteFolderRequest, fetchFolder, fetchFolderDeletionPreview, fetchRootFolders } from "@/api/folders";
 import { AppBar } from "@/components/AppBar";
@@ -8,6 +8,7 @@ import { DocumentDetailScreen } from "@/screens/DocumentDetailScreen";
 import { FolderScreen } from "@/screens/FolderScreen";
 import { LibraryScreen } from "@/screens/LibraryScreen";
 import { LoginScreen } from "@/screens/LoginScreen";
+import { SignupScreen } from "@/screens/SignupScreen";
 import TermsFoundScreen from "@/screens/TermsFoundScreen";
 import { UploadScreen } from "@/screens/UploadScreen";
 import type { ApiDocument, ApiDocumentDetail, ApiFolder, ApiFolderDetail, ApiUser, Doc, Screen } from "@/types";
@@ -85,6 +86,15 @@ export default function App() {
     setNavPath([]);
     setScreen("library");
     await loadRootFolders();
+  }
+
+  // /auth/register only creates the account -- it doesn't set the session
+  // cookie (only /auth/login does), so this signs the new user in right
+  // after with the same credentials, reusing login()'s existing state setup
+  // instead of duplicating it.
+  async function signup(email: string, name: string, password: string) {
+    await registerRequest(email, name, password);
+    await login(email, password);
   }
 
   async function logout() {
@@ -253,9 +263,9 @@ export default function App() {
   }
 
   // TermsFoundScreen brings its own full-screen header/back-button/bottom bar
-  // (see the component), so -- like "login" -- it renders standalone, not
-  // nested inside the shared AppBar/BottomNav shell.
-  const isApp = screen !== "login" && screen !== "terms-found";
+  // (see the component), so -- like "login"/"signup" -- it renders standalone,
+  // not nested inside the shared AppBar/BottomNav shell.
+  const isApp = screen !== "login" && screen !== "signup" && screen !== "terms-found";
 
   return (
     <>
@@ -264,7 +274,9 @@ export default function App() {
         * { box-sizing: border-box; margin: 0; padding: 0; }
       `}</style>
       <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#F9F7F5", overflow: "hidden" }}>
-        {screen === "login" && <LoginScreen onLogin={login} />}
+        {screen === "login" && <LoginScreen onLogin={login} onNavigateToSignup={() => setScreen("signup")} />}
+
+        {screen === "signup" && <SignupScreen onSignup={signup} onNavigateToLogin={() => setScreen("login")} />}
 
         {screen === "terms-found" && selectedDocDetail && (
           <TermsFoundScreen

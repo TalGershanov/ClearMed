@@ -63,8 +63,8 @@ def second_client():
 	return TestClient(app)
 
 
-def register_and_login(client: TestClient, email: str, password: str = "supersecret123") -> dict:
-	register_resp = client.post("/auth/register", json={"email": email, "password": password})
+def register_and_login(client: TestClient, email: str, password: str = "supersecret123", name: str = "Test User") -> dict:
+	register_resp = client.post("/auth/register", json={"email": email, "name": name, "password": password})
 	assert register_resp.status_code == 201, register_resp.text
 	login_resp = client.post("/auth/login", json={"email": email, "password": password})
 	assert login_resp.status_code == 200, login_resp.text

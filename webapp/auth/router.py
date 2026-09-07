@@ -42,7 +42,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 	if existing is not None:
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-	user = User(email=email, password_hash=hash_password(payload.password))
+	user = User(email=email, name=payload.name, password_hash=hash_password(payload.password))
 	db.add(user)
 	try:
 		db.commit()
