@@ -15,6 +15,10 @@ MRCONSO.RRF
 openmrs-frontend/esm-clearmed-widget/node_modules/
 openmrs-frontend/esm-clearmed-widget/dist/
 
+# server_init/build_finetuned_db.py's resumability checkpoint -- local run
+# state, not source; see server_init/finetuned_build_status.json.
+finetuned_build_status.json
+
 # --- Patient app (webapp/, appFrontend/) ---
 .pytest_cache/
 node_modules/
