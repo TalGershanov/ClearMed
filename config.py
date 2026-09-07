@@ -4,7 +4,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 JSON_FILE = os.path.join(BASE_DIR, "server_init", "data", "clearmed_terms_english.json")
 HEBREW_JSON_FILE = os.path.join(BASE_DIR, "server_init", "data", "clearmed_terms_hebrew.json")
-DB_FILE = os.path.join(BASE_DIR, "clearmed.db")
+# CLEARMED_DB_FILE lets a build write to a DB file other than the live
+# clearmed.db (e.g. server_init/build_finetuned_db.py, which must never touch
+# the v7-built production file) -- unset in normal/server operation, so the
+# live server always resolves to clearmed.db exactly as before.
+DB_FILE = os.environ.get("CLEARMED_DB_FILE", os.path.join(BASE_DIR, "clearmed.db"))
 XML_FILE = os.path.join(BASE_DIR, "data_preparation", "health_topics.xml")
 
 # Separate SQLite file for temporary, publicly-readable document shares (the

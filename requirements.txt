@@ -20,3 +20,6 @@ email-validator==2.3.0
 pypdf==6.17.0
 pymupdf==1.28.2
 boto3>=1.34
+
+# --- Fine-tuned short_explanation selector (server_init/build_finetuned_db.py) ---
+together>=1.3

@@ -1,6 +1,7 @@
 import functools
 import json
 import logging
+import os
 import re
 
 from dotenv import load_dotenv
@@ -12,9 +13,29 @@ logger = logging.getLogger("clearmed.server_init.ai_services")
 
 OPENAI_MODEL = "gpt-4o-mini"
 
+# Which model picks the short_explanation at DB-build time: "v7" (default,
+# unchanged OpenAI behavior) or "finetuned" (the Together AI fine-tuned
+# model from finetuning/experiments/experiment3, see
+# server_init/build_finetuned_db.py). Never flips on its own -- a build that
+# doesn't explicitly set this env var always gets v7, so v7 is never at risk
+# from this code existing.
+SELECTOR_ENV_VAR = "SHORT_EXPLANATION_SELECTOR"
+# Together AI model/endpoint name to call when the selector above is
+# "finetuned" -- set by build_finetuned_db.py once it knows the deployed
+# endpoint's name; not meaningful for the default "v7" selector.
+TOGETHER_MODEL_ENV_VAR = "TOGETHER_FINETUNED_MODEL"
+
 @functools.cache
 def _get_openai_client() -> OpenAI:
 	return OpenAI()
+
+@functools.cache
+def _get_together_client():
+	# Imported lazily so nothing outside an explicit "finetuned" build ever
+	# needs the `together` package installed -- the live server and a normal
+	# v7 rebuild never import this.
+	from together import Together
+	return Together()
 
 _QUESTION_PREFIXES = ("what is ", "what are ", "what causes ", "who is ", "who are ", "how is ", "how are ")
 
@@ -217,12 +238,78 @@ def _select_short_explanation_index_ai(sentences, term=None):
 
 	return selected_index
 
+def _build_selected_index_schema(n_candidates):
+	# Byte-identical contract to finetuning/experiments/experiment2/scripts/
+	# experiment2_deploy_evaluate_stop.py::build_selected_index_schema -- the
+	# fine-tuned model was trained and evaluated against exactly this strict
+	# json_schema shape, so production inference has to match it too.
+	return {
+		"type": "json_schema",
+		"json_schema": {
+			"name": "selected_index_response",
+			"strict": True,
+			"schema": {
+				"type": "object",
+				"properties": {
+					"selected_index": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": n_candidates - 1,
+					}
+				},
+				"required": ["selected_index"],
+				"additionalProperties": False,
+			},
+		},
+	}
+
+def _select_short_explanation_index_finetuned(sentences, term=None):
+	model = os.environ.get(TOGETHER_MODEL_ENV_VAR)
+	if not model:
+		logger.warning(
+			"%s selector is 'finetuned' but %s is not set for term %r; using fallback",
+			SELECTOR_ENV_VAR, TOGETHER_MODEL_ENV_VAR, term,
+		)
+		return None
+	try:
+		client = _get_together_client()
+		user_prompt = (
+			"Term: " + (term or "") + "\n"
+			"Candidate sentences (respond with the index of exactly one):\n"
+			+ "\n".join(f"{i}: {s}" for i, s in enumerate(sentences))
+		)
+		response = client.chat.completions.create(
+			model=model,
+			response_format=_build_selected_index_schema(len(sentences)),
+			messages=[
+				{"role": "system", "content": _SYSTEM_PROMPT},
+				{"role": "user", "content": user_prompt},
+			],
+			timeout=30,
+		)
+		payload = json.loads(response.choices[0].message.content)
+		selected_index = payload.get("selected_index")
+	except Exception:
+		logger.warning("Finetuned short-explanation call failed for term %r; using fallback", term, exc_info=True)
+		return None
+
+	if not isinstance(selected_index, int) or isinstance(selected_index, bool) or not (0 <= selected_index < len(sentences)):
+		logger.warning("Finetuned short-explanation for term %r returned an invalid index (%r); using fallback", term, selected_index)
+		return None
+
+	return selected_index
+
 def select_short_explanation_ai(full_explanation, term=None, max_words=30):
 	sentences = _clean_candidate_sentences(full_explanation)
 	if not sentences:
 		return None
 
-	selected_index = _select_short_explanation_index_ai(sentences, term=term)
+	selector = os.environ.get(SELECTOR_ENV_VAR, "v7")
+	if selector == "finetuned":
+		selected_index = _select_short_explanation_index_finetuned(sentences, term=term)
+	else:
+		selected_index = _select_short_explanation_index_ai(sentences, term=term)
+
 	if selected_index is None:
 		return _select_short_explanation_fallback(full_explanation, max_words)
 
