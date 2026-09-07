@@ -54,3 +54,13 @@ else:
 LOCAL_STORAGE_DIR = os.getenv("LOCAL_STORAGE_DIR", os.path.join(BASE_DIR, "uploads"))
 
 MAX_UPLOAD_SIZE_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_BYTES", str(20 * 1024 * 1024)))
+
+# "local" (default, unchanged dev behavior) or "s3" -- see
+# webapp/storage/__init__.py::get_storage(). S3_BUCKET_NAME is required only
+# when STORAGE_BACKEND=s3. AWS_REGION is optional even then -- when unset,
+# boto3 resolves the region itself (env var, ~/.aws/config, or the EC2
+# instance's own metadata when running with an instance role, which is the
+# expected production setup here).
+STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "local")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+AWS_REGION = os.getenv("AWS_REGION")
