@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ApiFolder } from "@/types";
 import { ActionTile } from "@/components/ActionTile";
 import { Field } from "@/components/Field";
-import { CameraIcon, CheckCircle, PDFIcon, ScanIcon, Spinner, UploadCloudIcon } from "@/components/icons";
+import { CameraIcon, CheckCircle, PDFIcon, Spinner, UploadCloudIcon } from "@/components/icons";
 import { formatFileSize } from "@/lib/ui";
 import { inputStyle } from "@/lib/ui";
 import { isAcceptedFile, MAX_UPLOAD_BYTES } from "@/lib/uploadValidation";
@@ -22,6 +22,7 @@ export function UploadScreen({ folders, onUpload }: {
   const [docName, setDocName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   // Default the folder picker to the first root folder once the list loads.
   useEffect(() => {
@@ -45,6 +46,15 @@ export function UploadScreen({ folders, onUpload }: {
   }
 
   function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) pickFile(file);
+  }
+
+  // Same validation/selection path as browsing a file -- capture="environment"
+  // just makes a mobile browser open the rear camera directly instead of a
+  // file picker; the resulting photo is handled identically to any other
+  // selected file (including PNG/JPG going through server-side OCR on upload).
+  function handleCameraInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) pickFile(file);
   }
@@ -92,6 +102,14 @@ export function UploadScreen({ folders, onUpload }: {
           onChange={handleFileInputChange}
           style={{ display: "none" }}
         />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleCameraInputChange}
+          style={{ display: "none" }}
+        />
         {uploading ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
             <Spinner />
@@ -127,10 +145,8 @@ export function UploadScreen({ folders, onUpload }: {
         )}
       </div>
 
-      {/* Camera / scan -- not implemented yet */}
       <div style={{ marginTop: 14, display: "flex", gap: 12 }}>
-        <ActionTile icon={<CameraIcon />} label="Take a photo (soon)" color="#C4BDB9" onClick={() => {}} disabled />
-        <ActionTile icon={<ScanIcon />} label="Scan document (soon)" color="#C4BDB9" onClick={() => {}} disabled />
+        <ActionTile icon={<CameraIcon />} label="Take a photo" color="#7BAAC8" onClick={() => cameraInputRef.current?.click()} />
       </div>
 
       {error && <p style={{ marginTop: 14, fontFamily: "Outfit, sans-serif", fontSize: 13, color: "#E07B55" }}>{error}</p>}
