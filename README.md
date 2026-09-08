@@ -349,7 +349,7 @@ examples of this exact decision, can match or beat it:
   (45 new stratified-sampled labels), and fixed a JSON-format-reliability problem by
   switching to a strict `json_schema` response format (0 format failures vs. 26/50
   initially). This is the canonical fine-tuned result to date.
-* **Experiment 3** — in progress: collecting additional labeled data targeting the two
+* **Experiment 3** — collecting additional labeled data targeting the two
   largest error clusters from Experiment 2's review (generic-vs-functional and
   related-fact-vs-explanation mismatches, together ~71% of its wrong picks).
 
